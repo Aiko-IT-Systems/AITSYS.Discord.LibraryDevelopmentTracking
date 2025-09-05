@@ -1,0 +1,11 @@
+<Solution>
+	<Folder Name="/Solution Items/">
+		<File Path=".editorconfig" />
+		<File Path=".gitattributes" />
+		<File Path=".gitignore" />
+		<File Path="publish_linux.sh" />
+		<File Path="pycord-support.service" />
+		<File Path="renovate.json" />
+	</Folder>
+	<Project Path="AITSYS.Discord.LibraryDevelopmentTracking.csproj" />
+</Solution>

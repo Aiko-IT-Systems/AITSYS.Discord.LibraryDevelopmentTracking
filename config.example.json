@@ -1,0 +1,59 @@
+{
+	"discord_config": {
+		"discord_token": "YOUR_BOT_TOKEN",
+		"discord_guild": "ALPHA_SERVER_ID",
+		"library_developer_role_id": "LIBRARY_DEVELOPER_ROLE_ID",
+		"library_role_mapping": {
+			"1403115035416465458": "DisCatSharp",
+			"1403115040843759767": "discord-api-types",
+			"1403115046027919492": "discord.http",
+			"1403115051640033412": "discord.js",
+			"1403115057197351023": "Discord.NET",
+			"1403115062549418097": "discord.py",
+			"1403115067917996255": "Discord++",
+			"1403115073399951490": "Discord4J",
+			"1403115078626185359": "Discordeno",
+			"1403115084175249599": "DiscordGo",
+			"1403115089707405412": "DiscordPHP",
+			"1403115095176777850": "Discordrb",
+			"1403115100495413279": "Disgo",
+			"1403115105759137944": "disnake",
+			"1403115111345815705": "D++",
+			"1403115116857266309": "DSharpPlus",
+			"1403115122032902226": "dysnomia",
+			"1403115127108010291": "hikari",
+			"1403115132858667049": "interactions.py",
+			"1403115138273513533": "JDA",
+			"1403115143977635880": "Kord",
+			"1403115149405192202": "laracord",
+			"1403115154819776623": "NetCord",
+			"1403115160163323967": "nextcord",
+			"1403115165829828759": "nostrum",
+			"1403115171127234704": "nyxx",
+			"1403115176655323308": "Oceanic",
+			"1403115182523289680": "pycord",
+			"1403115187778883646": "Remora",
+			"1403115193235411096": "serenity",
+			"1403115198188880038": "slash-create",
+			"1403115203536752733": "sleepy-discord",
+			"1403115209291202600": "SnowTransfer",
+			"1403115214718898176": "twilight",
+			"1403124087638986895": "Concord",
+			"1407859606335520788": "discordia",
+			"1407962682321010700": "Color-Chan.Discord",
+			"1410542982125453362": "dressed"
+		}
+	},
+	"notion_config": {
+		"notion_token": "YOUR_NOTION_TOKEN",
+		"notion_api_version": "2025-09-03",
+		"implementation_tracking_config": [
+			{
+				"name": "NAME_OF_NOTION",
+				"page_id": "UNIQUE_ID_OF_NOTION",
+				"database_id": "UNIQUE_ID_OF_TRACKING_DATABASE",
+				"data_source_id": "UNIQUE_ID_OF_TRACKING_DATABASE_DATA_SOURCE"
+			}
+		]
+	}
+}
