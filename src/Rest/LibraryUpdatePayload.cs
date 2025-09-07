@@ -4,7 +4,7 @@
 
 using Newtonsoft.Json;
 
-namespace AITSYS.Discord.LibraryDevelopmentTracking.Entities;
+namespace AITSYS.Discord.LibraryDevelopmentTracking.Rest;
 
 public class LibraryUpdatePayload
 {
