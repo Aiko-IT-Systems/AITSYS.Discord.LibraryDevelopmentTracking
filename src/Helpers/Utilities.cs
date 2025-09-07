@@ -283,6 +283,7 @@ public static class Utilities
 		//notionPie.ExplodeFraction = .01;
 		notionPie.SliceLabelDistance = 1.5;
 		notionPie.Radius = 1.1;
+		//notionPie.Rotation = Angle.FromDegrees(180);
 		notionPie.DonutFraction = .05;
 		notionPie.LinePattern = LinePattern.Solid;
 		notionPie.LineColor = NotionBackgroundColor(colorMode);
