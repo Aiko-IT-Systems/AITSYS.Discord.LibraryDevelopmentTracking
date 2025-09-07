@@ -1,6 +1,12 @@
 # AITSYS.Discord.LibraryDevelopmentTracking
 
-AITSYS.Discord.LibraryDevelopmentTracking is a .NET-based Discord bot designed to track library development progress and interact with Notion for discord alpha tests.
+This bot is a .NET-based Discord bot designed to track library development progress and interact with Notion for discord alpha tests.
+
+## Note
+
+This project only works for notions based on the following template: https://www.notion.so/marketplace/templates/discord-lib-devs-implementations-tracking
+
+If you want to use it with other notions, you'll need to modify the code yourself. But be warned, notions API is a shithole :^)
 
 ## Features
 
@@ -8,7 +14,6 @@ AITSYS.Discord.LibraryDevelopmentTracking is a .NET-based Discord bot designed t
 - **Notion Integration**: Fetches and updates project data from Notion databases.
 - **Application Commands**: Supports Discord slash commands for user interaction.
 - **Configurable**: Uses a JSON configuration file for easy setup.
-- **Extensible**: Modular codebase for adding new features and providers.
 
 ## Project Structure `src`
 
@@ -37,7 +42,7 @@ AITSYS.Discord.LibraryDevelopmentTracking is a .NET-based Discord bot designed t
 ### Prerequisites
 - [.NET 9.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
 - A Discord bot token
-- Notion integration token and corresponding IDs (if using Notion features)
+- Notion integration token and corresponding IDs
 
 ### Setup
 1. **Clone the repository:**
@@ -71,7 +76,7 @@ cd AITSYS.Discord.LibraryDevelopmentTracking/linux
 At the current stage, contributions are not being accepted. Future plans may include opening the project for community contributions.
 
 ## License
-This project is licensed under the AGPL-3.0-or-later License. See `LICENSE.md` and `LICENSE_NOTICE.md` for details.
+This project is licensed under the <b>AGPL-3.0-or-later</b> License. See `LICENSE.md` and `LICENSE_NOTICE.md` for details.
 
 ## Acknowledgements
 - [DisCatSharp](https://github.com/Aiko-IT-Systems/DisCatSharp) for Discord API integration
