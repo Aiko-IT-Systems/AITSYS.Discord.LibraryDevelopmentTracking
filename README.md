@@ -81,3 +81,5 @@ This project is licensed under the <b>AGPL-3.0-or-later</b> License. See `LICENS
 ## Acknowledgements
 - [DisCatSharp](https://github.com/Aiko-IT-Systems/DisCatSharp) for Discord API integration
 - [Notion API](https://developers.notion.com/) for project management features
+- [Newtonsoft.Json](https://www.newtonsoft.com/json) for JSON handling
+- [Matthias Frank](https://matthiasfrank.de/en/notion-colors/) for Notion color mapping
