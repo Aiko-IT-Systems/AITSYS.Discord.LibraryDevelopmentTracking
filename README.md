@@ -57,7 +57,7 @@ For Linux deployment, use the provided `publish_linux.sh` script:
 At the current stage, contributions are not being accepted. Future plans may include opening the project for community contributions.
 
 ## License
-This project is licensed under the AGPL-3.0-or-later License. See `LICENSE.md` for details.
+This project is licensed under the AGPL-3.0-or-later License. See `LICENSE.md` and `LICENSE_NOTICE.md` for details.
 
 ## Acknowledgements
 - [DisCatSharp](https://github.com/Aiko-IT-Systems/DisCatSharp) for Discord API integration
