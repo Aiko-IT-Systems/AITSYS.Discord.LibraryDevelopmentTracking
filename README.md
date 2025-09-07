@@ -1,6 +1,6 @@
 # AITSYS.Discord.LibraryDevelopmentTracking
 
-AITSYS.Discord.LibraryDevelopmentTracking is a .NET-based Discord bot designed to track library development progress and interact with Notion for project management. It leverages the DisCatSharp library for Discord integration and supports extensible command and interaction handling.
+AITSYS.Discord.LibraryDevelopmentTracking is a .NET-based Discord bot designed to track library development progress and interact with Notion for discord alpha tests.
 
 ## Features
 
@@ -10,7 +10,7 @@ AITSYS.Discord.LibraryDevelopmentTracking is a .NET-based Discord bot designed t
 - **Configurable**: Uses a JSON configuration file for easy setup.
 - **Extensible**: Modular codebase for adding new features and providers.
 
-## Project Structure
+## Project Structure `src`
 
 - `Program.cs`: Entry point for the application.
 - `DiscordBot.cs`: Main bot logic and Discord client setup.
@@ -32,7 +32,7 @@ AITSYS.Discord.LibraryDevelopmentTracking is a .NET-based Discord bot designed t
 1. **Clone the repository:**
    ```sh
    git clone https://github.com/Aiko-IT-Systems/AITSYS.Discord.LibraryDevelopmentTracking.git
-   cd AITSYS.Discord.LibraryDevelopmentTracking
+   cd AITSYS.Discord.LibraryDevelopmentTracking/src
    ```
 2. **Configure the bot:**
    - Copy `config.example.json` to `config.json` and fill in your credentials and settings.
@@ -48,9 +48,10 @@ AITSYS.Discord.LibraryDevelopmentTracking is a .NET-based Discord bot designed t
    ```
 
 ### Publishing
-For Linux deployment, use the provided `publish_linux.sh` script:
+For Linux deployment, use the provided `publish.sh` script:
 ```sh
-./publish_linux.sh
+cd AITSYS.Discord.LibraryDevelopmentTracking/linux
+./publish.sh
 ```
 
 ## Contributing
