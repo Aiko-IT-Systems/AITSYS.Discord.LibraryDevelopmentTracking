@@ -12,6 +12,10 @@ AITSYS.Discord.LibraryDevelopmentTracking is a .NET-based Discord bot designed t
 
 ## Project Structure `src`
 
+<details>
+
+<summary>Structure</summary>	
+ 
 - `Program.cs`: Entry point for the application.
 - `DiscordBot.cs`: Main bot logic and Discord client setup.
 - `ApplicationCommands.cs`: Implementation of Discord application (slash) commands.
@@ -21,7 +25,14 @@ AITSYS.Discord.LibraryDevelopmentTracking is a .NET-based Discord bot designed t
 - `Entities/`: Contains data models and Notion-related entities.
 - `config.json`: Configuration file (see `config.example.json` for template).
 
+</details>
+
+
 ## Getting Started
+
+<details>
+
+<summary>Getting Started</summary>
 
 ### Prerequisites
 - [.NET 9.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
@@ -53,6 +64,8 @@ For Linux deployment, use the provided `publish.sh` script:
 cd AITSYS.Discord.LibraryDevelopmentTracking/linux
 ./publish.sh
 ```
+
+</details>
 
 ## Contributing
 At the current stage, contributions are not being accepted. Future plans may include opening the project for community contributions.
