@@ -5,7 +5,7 @@
 using DisCatSharp;
 using DisCatSharp.EventArgs;
 
-namespace AITSYS.Discord.LibraryDevelopmentTracking;
+namespace AITSYS.Discord.LibraryDevelopmentTracking.Events;
 
 public static class Interactions
 {

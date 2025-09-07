@@ -4,6 +4,11 @@
 
 using System.Net;
 
+using AITSYS.Discord.LibraryDevelopmentTracking.Commands;
+using AITSYS.Discord.LibraryDevelopmentTracking.Events;
+using AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
+using AITSYS.Discord.LibraryDevelopmentTracking.Rest;
+
 using DisCatSharp;
 using DisCatSharp.ApplicationCommands;
 using DisCatSharp.Enums;
@@ -54,7 +59,7 @@ public sealed class DiscordBot
 			EnableDefaultHelp = false,
 			EnableDefaultUserAppsHelp = true,
 			DebugStartup = true,
-			CheckAllGuilds = true,
+			CheckAllGuilds = false,
 			EnableLocalization = false
 		});
 		this.InteractivityExtension = this.DiscordClient.UseInteractivity(new()
@@ -72,11 +77,14 @@ public sealed class DiscordBot
 		this.DiscordClient.ComponentInteractionCreated += Interactions.ComponentInteractionCreated;
 		this.DiscordClient.Ready += async (client, args) => _ = await client.Guilds[Config.DiscordConfig.DiscordGuild].GetAllMembersAsync();
 		this.ApplicationCommandsExtension.RegisterGlobalCommands<LibraryTracking>();
+		this.ApplicationCommandsExtension.RegisterGlobalCommands<LibraryHouseKeeping>();
+		this.ApplicationCommandsExtension.RegisterGlobalCommands<Dev>();
 	}
 
 	public async Task StartAsync()
 	{
 		await this.DiscordClient.ConnectAsync();
+		await DummyCache.InitAsync();
 		while (!CancellationTokenSource.IsCancellationRequested)
 		{
 			await Task.Delay(1000);

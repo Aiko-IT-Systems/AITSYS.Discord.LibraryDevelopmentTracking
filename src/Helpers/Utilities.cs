@@ -3,6 +3,7 @@
 // See <https://www.gnu.org/licenses/> for details.
 
 using AITSYS.Discord.LibraryDevelopmentTracking.Entities.Notion;
+using AITSYS.Discord.LibraryDevelopmentTracking.Enums;
 
 using DisCatSharp;
 using DisCatSharp.ApplicationCommands.Context;
@@ -12,7 +13,7 @@ using ScottPlot;
 using ScottPlot.Palettes;
 using ScottPlot.TickGenerators;
 
-namespace AITSYS.Discord.LibraryDevelopmentTracking;
+namespace AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
 
 public static class Utilities
 {
@@ -36,15 +37,19 @@ public static class Utilities
 		var admin = ctx.User.IsStaff || ctx.UserId is 856780995629154305;
 		DiscordMember? member = null;
 		if (ctx.GuildId != config.DiscordGuild)
-		{
 			if (!guild.TryGetMember(ctx.User.Id, out member))
 			{
 				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"You have to be a member of {ctx.Client.Guilds[DiscordBot.Config.DiscordConfig.DiscordGuild].Name.InlineCode()} to use this command."));
 				return (false, member, null);
 			}
+			else
+				member = ctx.Member;
+
+		if (member is null)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Could not retrieve your member information. Please try again later."));
+			return (false, member, null);
 		}
-		else
-			member = ctx.Member!;
 
 		if (!member.RoleIds.Contains(config.LibraryDeveloperRoleId) && !admin)
 		{
@@ -96,7 +101,7 @@ public static class Utilities
 	/// <param name="dataSource">The Notion data source result.</param>
 	/// <param name="setAsDefault">The status to set as default.</param>
 	/// <returns>A DiscordStringSelectComponent for status selection.</returns>
-	internal static DiscordStringSelectComponent GetStatusSelectMenuFromDataSource(NotionSearchDataSourceResult.DataSourceResult dataSource, string setAsDefault)
+	internal static DiscordStringSelectComponent GetStatusSelectMenuFromDataSource(this NotionSearchDataSourceResult.DataSourceResult dataSource, string setAsDefault)
 	{
 		var options = dataSource.Properties.Status.InnerStatus.Options.ToDictionary(option => option.Id, option => option.Name);
 		DiscordStringSelectComponent statusSelect = new("Select the current status", options.Select(x => new DiscordStringSelectComponentOption(x.Value, x.Key, isDefault: x.Value.Equals(setAsDefault, StringComparison.InvariantCultureIgnoreCase))), "status", 1, 1, required: true);
@@ -119,7 +124,8 @@ public static class Utilities
 		var options = allowedLibraries.Select(x => new DiscordStringSelectComponentOption(x.Value.Name, x.Key.ToString(), emoji: new DiscordComponentEmoji(LanguageEmojis.Map[string.Join("", currentDatas[x.Value.Name].Results[0].Properties.Language.RichText.SelectMany(x => x.Text.Content))]))).ToList();
 		foreach (var chunk in options.Chunk(25))
 		{
-			DiscordStringSelectComponent select = new($"Select the library ({i}) you want to update", chunk, minOptions: 1, maxOptions: 1);
+			var count = allowedLibraries.Count <= 25 ? string.Empty : $"(Page {i}) ";
+			DiscordStringSelectComponent select = new($"Select the library {count}you want to update", chunk, minOptions: 1, maxOptions: 1);
 			selects.Add(select);
 			i++;
 		}
@@ -137,25 +143,76 @@ public static class Utilities
 	/// <summary>
 	/// Gets the default color mapping for known statuses.
 	/// </summary>
+	/// <param name="colorMode">The color mode (light or dark) to use for the colors.</param>
 	/// <returns>A dictionary mapping status names to their default colors.</returns>
-	internal static Dictionary<string, Color> GetDefaultColors()
+	internal static Dictionary<string, Color> GetDefaultColors(ColorMode colorMode)
 	{
 		return new()
 					{
-						{ "Not Started", Colors.Red },
-						{ "In Progress", Colors.Orange },
-						{ "In Review", Colors.Blue },
-						{ "Ready For Release", Colors.Yellow },
-						{ "Released", Colors.Green }
+						{ "Not Started", colorMode.Red() },
+						{ "In Progress", colorMode.Orange() },
+						{ "In Review", colorMode.Blue() },
+						{ "Ready For Release", colorMode.Yellow() },
+						{ "Released", colorMode.Green() }
 					};
 	}
+
+	/// <summary>
+	/// Returns the red color for the specified color mode.
+	/// </summary>
+	/// <param name="colorMode">The color mode (light or dark) to determine the red color.</param>
+	/// <returns>The red color used for status highlighting.</returns>
+	internal static Color Red(this ColorMode colorMode)
+		=> colorMode is ColorMode.Dark
+			? Color.FromHex("#BE524B")
+			: Color.FromHex("#C4554D");
+
+	/// <summary>
+	/// Returns the orange color for the specified color mode.
+	/// </summary>
+	/// <param name="colorMode">The color mode (light or dark) to determine the orange color.</param>
+	/// <returns>The orange color used for status highlighting.</returns>
+	internal static Color Orange(this ColorMode colorMode)
+		=> colorMode is ColorMode.Dark
+			? Color.FromHex("#CB7B37")
+			: Color.FromHex("#CC782F");
+
+	/// <summary>
+	/// Returns the blue color for the specified color mode.
+	/// </summary>
+	/// <param name="colorMode">The color mode (light or dark) to determine the blue color.</param>
+	/// <returns>The blue color used for status highlighting.</returns>
+	internal static Color Blue(this ColorMode colorMode)
+		=> colorMode is ColorMode.Dark
+			? Color.FromHex("#447ACB")
+			: Color.FromHex("#487CA5");
+
+	/// <summary>
+	/// Returns the yellow color for the specified color mode.
+	/// </summary>
+	/// <param name="colorMode">The color mode (light or dark) to determine the yellow color.</param>
+	/// <returns>The yellow color used for status highlighting.</returns>
+	internal static Color Yellow(this ColorMode colorMode)
+		=> colorMode is ColorMode.Dark
+			? Color.FromHex("#C19138")
+			: Color.FromHex("#C29343");
+
+	/// <summary>
+	/// Returns the green color for the specified color mode.
+	/// </summary>
+	/// <param name="colorMode">The color mode (light or dark) to determine the green color.</param>
+	/// <returns>The green color used for status highlighting.</returns>
+	internal static Color Green(this ColorMode colorMode)
+		=> colorMode is ColorMode.Dark
+			? Color.FromHex("#4F9768")
+			: Color.FromHex("#548164");
 
 	/// <summary>
 	/// Gets the default color mapping for known statuses in reverse order.
 	/// </summary>
 	/// <returns>A dictionary mapping status names to their default colors in reverse order.</returns>
-	internal static Dictionary<string, Color> GetDefaultColorsReversed()
-		=> GetDefaultColors().Reverse().ToDictionary(x => x.Key, x => x.Value);
+	internal static Dictionary<string, Color> GetDefaultColorsReversed(ColorMode colorMode)
+		=> GetDefaultColors(colorMode).Reverse().ToDictionary(x => x.Key, x => x.Value);
 
 	/// <summary>
 	/// Gets the default ordered list of status names.
@@ -170,6 +227,26 @@ public static class Utilities
 	/// <returns>A list of status names in reverse order.</returns>
 	internal static List<string> GetOrderedDefaultStatusesReversed()
 		=> [.. GetOrderedDefaultStatuses().AsEnumerable().Reverse()];
+
+	/// <summary>
+	/// Returns the Notion background color for the specified color mode.
+	/// </summary>
+	/// <param name="colorMode">The color mode (light or dark) to determine the background color.</param>
+	/// <returns>The background color used for Notion-styled charts and UI elements.</returns>
+	internal static Color NotionBackgroundColor(ColorMode colorMode)
+		=> colorMode is ColorMode.Dark
+			? Color.FromHex("#191919")
+			: Color.FromHex("#FFFFFF");
+
+	/// <summary>
+	/// Returns the Notion foreground (text) color for the specified color mode.
+	/// </summary>
+	/// <param name="colorMode">The color mode (light or dark) to determine the foreground color.</param>
+	/// <returns>The foreground color used for Notion-styled charts and UI elements.</returns>
+	internal static Color NotionForegroundColor(ColorMode colorMode)
+		=> colorMode is ColorMode.Dark
+			? Color.FromHex("#D4D4D4")
+			: Color.FromHex("#373530");
 
 	/// <summary>
 	/// Gets the status and language property IDs from a Notion data source.
@@ -187,23 +264,24 @@ public static class Utilities
 	/// Generates a ScottPlot pie chart from the provided status data.
 	/// </summary>
 	/// <param name="data">A dictionary mapping status names to their counts.</param>
-	/// <returns>A ScottPlot.Plot object representing the pie chart.</returns>
-	internal static Plot GenerateNotionPieChart(this Dictionary<string, int> data)
+	/// <param name="colorMode">The color mode (light or dark) to use for the chart's appearance.</param>
+	/// <returns>A ScottPlot.Plot object representing the pie chart for given <paramref name="data"/>.</returns>
+	internal static Plot GenerateNotionPieChart(this Dictionary<string, int> data, ColorMode colorMode)
 	{
 		Plot notionPlot = new();
 		notionPlot.Add.Palette = new Penumbra();
 		notionPlot.Font.Set("gg sans", FontWeight.Medium);
-		notionPlot.DataBackground.Color = Color.FromHex("#191919");
+		notionPlot.DataBackground.Color = NotionBackgroundColor(colorMode);
 		var total = data.Sum(s => s.Value);
-		var colors = GetDefaultColors();
+		var colors = GetDefaultColors(colorMode);
 		var slices = data.Select(x => new PieSlice() { Value = x.Value, FillColor = colors[x.Key], Label = x.Key }).ToList();
 		slices.ForEach(slice =>
 		{
-			slice.LabelFontColor = Color.FromHex("#6F7D6F");
+			slice.LabelFontColor = NotionForegroundColor(colorMode);
 			slice.LabelFontSize = 20;
 			slice.LegendText = $"{slice.Label}";
 			slice.LabelAlignment = Alignment.MiddleCenter;
-			slice.LabelText = $"{slice.Value} ({slice.Value / (float)total * 100:F1}%)";
+			slice.LabelText = $"{slice.Value} ({slice.Value / total * 100:F1}%)";
 			slice.LabelBold = true;
 			slice.LabelLineSpacing = 1.2f;
 			slice.LabelFontName = "gg sans Medium";
@@ -212,16 +290,16 @@ public static class Utilities
 		notionPie.ExplodeFraction = .01;
 		notionPie.SliceLabelDistance = 1.5;
 		notionPie.Radius = 1;
-		notionPie.DonutFraction = .2;
+		notionPie.DonutFraction = .05;
 		notionPie.LinePattern = LinePattern.Solid;
-		notionPie.LineColor = Color.FromHex("#191919");
+		notionPie.LineColor = NotionBackgroundColor(colorMode);
 		notionPie.LineWidth = 2;
 		notionPlot.Axes.Frameless();
 		notionPlot.HideGrid();
-		notionPlot.Legend.FontColor = Color.FromHex("#6F7D6F");
+		notionPlot.Legend.FontColor = NotionForegroundColor(colorMode);
 		notionPlot.Legend.FontSize = 16;
-		notionPlot.Legend.BackgroundColor = Color.FromHex("#191919");
-		notionPlot.Legend.OutlineColor = Color.FromHex("#191919");
+		notionPlot.Legend.BackgroundColor = NotionBackgroundColor(colorMode);
+		notionPlot.Legend.OutlineColor = NotionBackgroundColor(colorMode);
 		notionPlot.Legend.Alignment = Alignment.LowerCenter;
 		notionPlot.Legend.Orientation = Orientation.Horizontal;
 		notionPlot.Legend.TightHorizontalWrapping = false;
@@ -242,7 +320,7 @@ public static class Utilities
 		Dictionary<string, int> counts = [];
 		foreach (var res in data)
 			counts[res.Key] = res.Value.Count;
-		counts = counts.OrderBy(kv => Utilities.GetOrderedDefaultStatuses().IndexOf(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value);
+		counts = counts.OrderBy(kv => GetOrderedDefaultStatuses().IndexOf(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value);
 		return counts;
 	}
 
@@ -256,16 +334,14 @@ public static class Utilities
 		Dictionary<string, Dictionary<string, int>> counts = [];
 		var languages = data.Values.SelectMany(x => x).Select(x => string.Join("", x.Properties.Language.RichText.Select(y => y.Text.Content))).Distinct();
 		foreach (var language in languages)
-			counts[language] = Utilities.GetOrderedDefaultStatuses().ToDictionary(x => x, x => 0);
+			counts[language] = GetOrderedDefaultStatuses().ToDictionary(x => x, x => 0);
 		foreach (var res in data)
-		{
 			foreach (var item in res.Value)
 			{
 				var targetLang = string.Join("", item.Properties.Language.RichText.Select(x => x.Text.Content));
 				var status = item.Properties.Status.InnerStatus.Name;
 				counts[targetLang][status]++;
 			}
-		}
 		return counts;
 	}
 
@@ -273,17 +349,18 @@ public static class Utilities
 	/// Generates a ScottPlot stacked bar chart for language support, showing status counts per language.
 	/// </summary>
 	/// <param name="data">A dictionary mapping language names to dictionaries of status counts.</param>
-	/// <returns>A ScottPlot.Plot object representing the stacked bar chart.</returns>
-	internal static Plot GenerateNotionBarChart(this Dictionary<string, Dictionary<string, int>> data)
+	/// <param name="colorMode">The color mode (light or dark) to use for the chart's appearance.</param>
+	/// <returns>A ScottPlot.Plot object representing the stacked bar chart for given <paramref name="data"/>.</returns>
+	internal static Plot GenerateNotionBarChart(this Dictionary<string, Dictionary<string, int>> data, ColorMode colorMode)
 	{
 		Plot notionPlot = new();
 		notionPlot.Add.Palette = new Penumbra();
 		notionPlot.Font.Set("gg sans", FontWeight.Medium);
-		notionPlot.DataBackground.Color = Color.FromHex("#191919");
-		notionPlot.FigureBackground.Color = Color.FromHex("#191919");
+		notionPlot.DataBackground.Color = NotionBackgroundColor(colorMode);
+		notionPlot.FigureBackground.Color = NotionBackgroundColor(colorMode);
 		data = data.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value);
 		var statuses = GetOrderedDefaultStatusesReversed().ToArray();
-		var colors = GetDefaultColorsReversed().Select(x => x.Value).ToArray();
+		var colors = GetDefaultColorsReversed(colorMode).Select(x => x.Value).ToArray();
 		var maxCount = data.Values.Max(x => x.Values.Sum()) + 2;
 		foreach (var group in data.Keys)
 		{
@@ -329,24 +406,25 @@ public static class Utilities
 			notionPlot.Legend.ManualItems.Add(item);
 		}
 		notionPlot.Axes.Bottom.TickGenerator = langTickGen;
-		notionPlot.Axes.Bottom.TickLabelStyle = new LabelStyle() { ForeColor = Color.FromHex("#6F7D6F"), FontSize = 16, FontName = "gg sans Medium" };
-		notionPlot.Axes.Left.TickLabelStyle = new LabelStyle() { ForeColor = Color.FromHex("#6F7D6F"), FontSize = 16, FontName = "gg sans Medium" };
+		notionPlot.Axes.Bottom.TickLabelStyle = new LabelStyle() { ForeColor = NotionForegroundColor(colorMode), FontSize = 16, FontName = "gg sans Medium" };
+		notionPlot.Axes.Left.TickLabelStyle = new LabelStyle() { ForeColor = NotionForegroundColor(colorMode), FontSize = 16, FontName = "gg sans Medium" };
 		notionPlot.Axes.Left.FrameLineStyle.Pattern = LinePattern.Solid;
-		notionPlot.Axes.Left.FrameLineStyle.Color = Color.FromHex("#FFFFFF");
+		notionPlot.Axes.Left.FrameLineStyle.Color = NotionForegroundColor(colorMode);
 		notionPlot.Axes.Left.TickGenerator = countTickGen;
-		notionPlot.Axes.Color(Color.FromHex("#6F7D6F"));
+		notionPlot.Axes.Color(NotionForegroundColor(colorMode));
 		notionPlot.Axes.AntiAlias(true);
 		notionPlot.Axes.Margins(bottom: 0);
-		notionPlot.Legend.FontColor = Color.FromHex("#6F7D6F");
+		notionPlot.Legend.FontColor = NotionForegroundColor(colorMode);
 		notionPlot.Legend.FontSize = 16;
-		notionPlot.Legend.BackgroundColor = Color.FromHex("#191919");
-		notionPlot.Legend.OutlineColor = Color.FromHex("#191919");
+		notionPlot.Legend.BackgroundColor = NotionBackgroundColor(colorMode);
+		notionPlot.Legend.OutlineColor = NotionBackgroundColor(colorMode);
 		notionPlot.Legend.Alignment = Alignment.UpperCenter;
 		notionPlot.Legend.Orientation = Orientation.Horizontal;
 		notionPlot.Legend.TightHorizontalWrapping = false;
 		notionPlot.Legend.SymbolPadding = 10;
 		notionPlot.Legend.FontName = "gg sans Medium";
 		notionPlot.Legend.ShadowFillStyle.IsVisible = false;
+		notionPlot.Grid.LineColor = NotionForegroundColor(colorMode).WithAlpha(0.1);
 		notionPlot.ShowLegend();
 		return notionPlot;
 	}

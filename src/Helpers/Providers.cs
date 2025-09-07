@@ -6,7 +6,7 @@ using DisCatSharp.ApplicationCommands.Attributes;
 using DisCatSharp.ApplicationCommands.Context;
 using DisCatSharp.Entities;
 
-namespace AITSYS.Discord.LibraryDevelopmentTracking;
+namespace AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
 
 public class NotionTrackingListProvider : IChoiceProvider
 {

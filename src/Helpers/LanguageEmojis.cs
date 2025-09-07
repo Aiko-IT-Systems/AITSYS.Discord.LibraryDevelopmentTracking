@@ -2,7 +2,7 @@
 // Licensed under the AGPL-3.0-or-later
 // See <https://www.gnu.org/licenses/> for details.
 
-namespace AITSYS.Discord.LibraryDevelopmentTracking;
+namespace AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
 
 public static class LanguageEmojis
 {
