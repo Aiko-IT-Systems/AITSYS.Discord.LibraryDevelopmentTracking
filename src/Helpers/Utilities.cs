@@ -208,13 +208,6 @@ public static class Utilities
 			: Color.FromHex("#548164");
 
 	/// <summary>
-	/// Gets the default color mapping for known statuses in reverse order.
-	/// </summary>
-	/// <returns>A dictionary mapping status names to their default colors in reverse order.</returns>
-	internal static Dictionary<string, Color> GetDefaultColorsReversed(ColorMode colorMode)
-		=> GetDefaultColors(colorMode).Reverse().ToDictionary(x => x.Key, x => x.Value);
-
-	/// <summary>
 	/// Gets the default ordered list of status names.
 	/// </summary>
 	/// <returns>A list of status names in default order.</returns>
@@ -278,8 +271,8 @@ public static class Utilities
 		slices.ForEach(slice =>
 		{
 			slice.LabelFontColor = NotionForegroundColor(colorMode);
-			slice.LabelFontSize = 20;
-			slice.LegendText = $"{slice.Label}";
+			slice.LabelFontSize = 30;
+			slice.LegendText = $"{slice.Label} ({slice.Value})";
 			slice.LabelAlignment = Alignment.MiddleCenter;
 			slice.LabelText = $"{slice.Value} ({slice.Value / total * 100:F1}%)";
 			slice.LabelBold = true;
@@ -287,9 +280,9 @@ public static class Utilities
 			slice.LabelFontName = "gg sans Medium";
 		});
 		var notionPie = notionPlot.Add.Pie(slices);
-		notionPie.ExplodeFraction = .01;
+		//notionPie.ExplodeFraction = .01;
 		notionPie.SliceLabelDistance = 1.5;
-		notionPie.Radius = 1;
+		notionPie.Radius = 1.1;
 		notionPie.DonutFraction = .05;
 		notionPie.LinePattern = LinePattern.Solid;
 		notionPie.LineColor = NotionBackgroundColor(colorMode);
@@ -360,7 +353,7 @@ public static class Utilities
 		notionPlot.FigureBackground.Color = NotionBackgroundColor(colorMode);
 		data = data.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value);
 		var statuses = GetOrderedDefaultStatusesReversed().ToArray();
-		var colors = GetDefaultColorsReversed(colorMode).Select(x => x.Value).ToArray();
+		var colors = GetDefaultColors(colorMode);
 		var maxCount = data.Values.Max(x => x.Values.Sum()) + 2;
 		foreach (var group in data.Keys)
 		{
@@ -373,7 +366,7 @@ public static class Utilities
 				Bar bar = new()
 				{
 					Value = nextBarBase + value,
-					FillColor = colors[i],
+					FillColor = colors[status],
 					ValueBase = nextBarBase,
 					Position = Array.IndexOf([.. data.Keys], group)
 				};
@@ -401,7 +394,7 @@ public static class Utilities
 			LegendItem item = new()
 			{
 				LabelText = status,
-				FillColor = colors[i]
+				FillColor = colors[status]
 			};
 			notionPlot.Legend.ManualItems.Add(item);
 		}
