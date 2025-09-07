@@ -8,6 +8,7 @@ using DisCatSharp.ApplicationCommands.Attributes;
 using DisCatSharp.ApplicationCommands.Context;
 using DisCatSharp.Entities;
 using DisCatSharp.Enums;
+using DisCatSharp.Exceptions;
 using DisCatSharp.Interactivity.Extensions;
 
 using ScottPlot;
@@ -111,9 +112,13 @@ public class LibraryTracking : ApplicationCommandsModule
 			else
 				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to update {selectedLibrary.Mention} in {pageTitle.Bold()}.\n\nPlease contact a server administrator.\n\n{res.BlockCode("cs")}")], accentColor: DiscordColor.DarkRed)));
 		}
+		catch (DisCatSharpException)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Discord oopsie")], accentColor: DiscordColor.DarkRed)));
+		}
 		catch (Exception ex)
 		{
-			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("If you see this, notion probably fucked something up again. There API is so fucking cursed.")], accentColor: DiscordColor.DarkRed)));
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("If you see this, notion probably fucked something up again. Their API is so fucking cursed.")], accentColor: DiscordColor.DarkRed)));
 			var user = await ctx.Client.GetUserAsync(856780995629154305);
 			await user.SendMessageAsync($"Notion probably fucked something up again. Might need to take a look.\n{ex.Message.BlockCode("cs")}\n{ex.StackTrace?.BlockCode("cs") ?? string.Empty}");
 		}
@@ -133,9 +138,13 @@ public class LibraryTracking : ApplicationCommandsModule
 			}
 			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"You selected {libraryName} for meow")])));
 		}
+		catch (DisCatSharpException)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Discord oopsie")], accentColor: DiscordColor.DarkRed)));
+		}
 		catch (Exception ex)
 		{
-			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("If you see this, notion probably fucked something up again. There API is so fucking cursed.")], accentColor: DiscordColor.DarkRed)));
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("If you see this, notion probably fucked something up again. Their API is so fucking cursed.")], accentColor: DiscordColor.DarkRed)));
 			var user = await ctx.Client.GetUserAsync(856780995629154305);
 			await user.SendMessageAsync($"Notion probably fucked something up again. Might need to take a look.\n{ex.Message.BlockCode("cs")}\n{ex.StackTrace?.BlockCode("cs") ?? string.Empty}");
 		}
@@ -186,9 +195,13 @@ public class LibraryTracking : ApplicationCommandsModule
 			var container = new DiscordContainerComponent([new DiscordSectionComponent([new($"{pageTitle.Header2()}"), new($"### Description\n{pageCallout.Icon.Emoji} {pageCallout.RichText[0].Text.Content}")]).WithThumbnailComponent($"https://www.emoji.family/api/emojis/{page.PageIcon.Emoji}/fluent/png/128"), new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large), new DiscordTextDisplayComponent("Statistics".Header2()), .. statisticComponents, new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large), new DiscordActionRowComponent([new DiscordLinkButtonComponent(page.PublicUrl, "Open Notion", emoji: new DiscordComponentEmoji(1414062917137203383))])], accentColor: DiscordColor.Blue);
 			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container).AddFile("implementation_statistic.webp", pieMemoryStream).AddFile("language_support.webp", barMemoryStream));
 		}
+		catch (DisCatSharpException)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Discord oopsie")], accentColor: DiscordColor.DarkRed)));
+		}
 		catch (Exception ex)
 		{
-			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("If you see this, notion probably fucked something up again. There API is so fucking cursed.")], accentColor: DiscordColor.DarkRed)));
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("If you see this, notion probably fucked something up again. Their API is so fucking cursed.")], accentColor: DiscordColor.DarkRed)));
 			var user = await ctx.Client.GetUserAsync(856780995629154305);
 			await user.SendMessageAsync($"Notion probably fucked something up again. Might need to take a look.\n{ex.Message.BlockCode("cs")}\n{ex.StackTrace?.BlockCode("cs") ?? string.Empty}");
 		}
