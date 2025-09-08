@@ -104,24 +104,6 @@ public class NotionSearchDataSourceResult
 		public string SyncedPropertyId { get; set; }
 	}
 
-	public class GitHubPullRequests
-	{
-		[JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
-		public string Id { get; set; }
-
-		[JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
-		public string Name { get; set; }
-
-		[JsonProperty("description", NullValueHandling = NullValueHandling.Ignore)]
-		public object Description { get; set; }
-
-		[JsonProperty("type", NullValueHandling = NullValueHandling.Ignore)]
-		public string Type { get; set; }
-
-		[JsonProperty("relation", NullValueHandling = NullValueHandling.Ignore)]
-		public Relation Relation { get; set; }
-	}
-
 	public class Group
 	{
 		[JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
@@ -242,6 +224,24 @@ public class NotionSearchDataSourceResult
 		public string DatabaseId { get; set; }
 	}
 
+	public class ModifiedBy
+	{
+		[JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
+		public string Id { get; set; }
+
+		[JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
+		public string Name { get; set; }
+
+		[JsonProperty("description", NullValueHandling = NullValueHandling.Ignore)]
+		public object Description { get; set; }
+
+		[JsonProperty("type", NullValueHandling = NullValueHandling.Ignore)]
+		public string Type { get; set; }
+
+		[JsonProperty("rich_text", NullValueHandling = NullValueHandling.Ignore)]
+		public RichText RichText { get; set; }
+	}
+
 	public class Properties
 	{
 		[JsonProperty("Pull Request / Commit", NullValueHandling = NullValueHandling.Ignore)]
@@ -265,11 +265,11 @@ public class NotionSearchDataSourceResult
 		[JsonProperty("Released In Version", NullValueHandling = NullValueHandling.Ignore)]
 		public ReleasedInVersion ReleasedInVersion { get; set; }
 
+		[JsonProperty("Modified By", NullValueHandling = NullValueHandling.Ignore)]
+		public ModifiedBy ModifiedBy { get; set; }
+
 		[JsonProperty("Library", NullValueHandling = NullValueHandling.Ignore)]
 		public Library Library { get; set; }
-
-		[JsonProperty("GitHub Pull Requests", NullValueHandling = NullValueHandling.Ignore)]
-		public GitHubPullRequests GitHubPullRequests { get; set; }
 	}
 
 	public class PullRequestCommit
@@ -385,6 +385,20 @@ public class NotionSearchDataSourceResult
 
 	public class RichText
 	{
+		[JsonProperty("type", NullValueHandling = NullValueHandling.Ignore)]
+		public string Type { get; set; }
+
+		[JsonProperty("text", NullValueHandling = NullValueHandling.Ignore)]
+		public Text Text { get; set; }
+
+		[JsonProperty("annotations", NullValueHandling = NullValueHandling.Ignore)]
+		public Annotations Annotations { get; set; }
+
+		[JsonProperty("plain_text", NullValueHandling = NullValueHandling.Ignore)]
+		public string PlainText { get; set; }
+
+		[JsonProperty("href", NullValueHandling = NullValueHandling.Ignore)]
+		public object Href { get; set; }
 	}
 
 	public class Status

@@ -11,12 +11,6 @@ public class LibraryUpdatePayload
 	[JsonProperty("properties", NullValueHandling = NullValueHandling.Ignore)]
 	public Properties UpdateProperties { get; set; }
 
-	public class Notes
-	{
-		[JsonProperty("rich_text", NullValueHandling = NullValueHandling.Ignore)]
-		public List<RichText> RichTexts { get; set; } = [];
-	}
-
 	public class Properties
 	{
 		[JsonProperty("Pull Request / Commit", NullValueHandling = NullValueHandling.Ignore)]
@@ -30,6 +24,15 @@ public class LibraryUpdatePayload
 
 		[JsonProperty("Notes", NullValueHandling = NullValueHandling.Ignore)]
 		public Notes Notes { get; set; }
+
+		[JsonProperty("Modified By", NullValueHandling = NullValueHandling.Ignore)]
+		public ModifiedBy ModifiedBy { get; set; }
+	}
+
+	public class Notes
+	{
+		[JsonProperty("rich_text", NullValueHandling = NullValueHandling.Ignore)]
+		public List<RichText> RichTexts { get; set; } = [];
 	}
 
 	public class PullRequestCommit
@@ -39,6 +42,12 @@ public class LibraryUpdatePayload
 	}
 
 	public class ReleasedInVersion
+	{
+		[JsonProperty("rich_text", NullValueHandling = NullValueHandling.Ignore)]
+		public List<RichText> RichTexts { get; set; } = [];
+	}
+
+	public class ModifiedBy
 	{
 		[JsonProperty("rich_text", NullValueHandling = NullValueHandling.Ignore)]
 		public List<RichText> RichTexts { get; set; } = [];

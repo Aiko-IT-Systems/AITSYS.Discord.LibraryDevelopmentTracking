@@ -71,9 +71,11 @@ public class LibraryTracking : ApplicationCommandsModule
 			var prCommit = libraryData.Results[0].Properties.PullRequestCommit.Url;
 			var version = libraryData.Results[0].Properties.ReleasedInVersion.RichText.Count is not 0 ? string.Join("", libraryData.Results[0].Properties.ReleasedInVersion.RichText.SelectMany(x => x.Text.Content)) : null;
 			var notes = libraryData.Results[0].Properties.Notes.RichText.Count is not 0 ? string.Join("", libraryData.Results[0].Properties.Notes.RichText.SelectMany(x => x.Text.Content)) : null;
+			var lastModifiedBy = libraryData.Results[0].Properties.ModifiedBy.RichText.Count is not 0 ? Convert.ToUInt64(string.Join("", libraryData.Results[0].Properties.ModifiedBy.RichText.SelectMany(x => x.Text.Content))) : Convert.ToUInt64(856780995629154305);
+			var lastModifiedByUser = await ctx.Client.GetUserAsync(lastModifiedBy);
 
 			var modalBuilder = new DiscordInteractionModalBuilder("Library Status Update");
-			modalBuilder.AddTextDisplayComponent(new($"## Please adjust the data as needed\nThis will modify {selectedLibrary.Mention} in {pageTitle.Bold()}\n\n-# Last modification: {(libraryData.Results[0].LastEditedTime.HasValue ? libraryData.Results[0].LastEditedTime!.Value.Timestamp() : libraryData.Results[0].CreatedTime.HasValue ? libraryData.Results[0].CreatedTime!.Value.Timestamp() : "Unknown")}"));
+			modalBuilder.AddTextDisplayComponent(new($"## Please adjust the data as needed\nThis will modify {selectedLibrary.Mention} in {pageTitle.Bold()}.\nThe current data is filled out.\n\n-# Last edited by: {lastModifiedByUser.Mention()} ({lastModifiedBy})\n-# Last modification: {(libraryData.Results[0].LastEditedTime.HasValue ? libraryData.Results[0].LastEditedTime!.Value.Timestamp() : libraryData.Results[0].CreatedTime.HasValue ? libraryData.Results[0].CreatedTime!.Value.Timestamp() : "Unknown")}"));
 			modalBuilder.AddLabelComponent(new("Status", "The status of the implementation", dataSource.GetStatusSelectMenuFromDataSource(currentStatus)));
 			modalBuilder.AddLabelComponent(new("Pull Request / Commit", "The pull request or commit implementing the changes / features", new DiscordTextInputComponent(TextComponentStyle.Small, "pr_commit", "Pull Request / Commit with implementation", null, null, false, prCommit)));
 			modalBuilder.AddLabelComponent(new("Version", "The version number releasing the change / feature", new DiscordTextInputComponent(TextComponentStyle.Small, "version", "Released Version", null, null, false, version)));
@@ -110,7 +112,7 @@ public class LibraryTracking : ApplicationCommandsModule
 				.Where(x => x.Component is DiscordTextInputComponent y && y.CustomId is "notes")
 				.FirstOrDefault()?.Component as DiscordTextInputComponent)?.Value;
 			newNotes = string.IsNullOrWhiteSpace(newNotes) ? null : newNotes;
-			var res = await DiscordBot.NotionRestClient.UpdatePageAsync(libraryData.Results[0].Id, newStatus, newPrCommit, newVersion, newNotes);
+			var res = await DiscordBot.NotionRestClient.UpdatePageAsync(libraryData.Results[0].Id, ctx.UserId, newStatus, newPrCommit, newVersion, newNotes);
 			if (!res.Contains("error"))
 				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Successfully updated {selectedLibrary.Mention} in {pageTitle.Bold()}.\n\nPlease allow some time for Notion to reflect the changes.")], accentColor: DiscordColor.Green)));
 			else

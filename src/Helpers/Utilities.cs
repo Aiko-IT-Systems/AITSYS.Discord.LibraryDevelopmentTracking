@@ -34,7 +34,7 @@ public static class Utilities
 	public static async Task<(bool HasAccess, DiscordMember? Member, Dictionary<ulong, DiscordRole>? AllowedLibraries)> CheckAccessAsync(this InteractionContext ctx, DiscordGuild guild, DiscordConfig config)
 	{
 		// TODO: Adjust as needed
-		var admin = ctx.User.IsStaff || ctx.UserId is 856780995629154305;
+		var admin = false; //ctx.User.IsStaff || ctx.UserId is 856780995629154305;
 		DiscordMember? member = null;
 		if (ctx.GuildId != config.DiscordGuild)
 			if (!guild.TryGetMember(ctx.User.Id, out member))
@@ -44,6 +44,8 @@ public static class Utilities
 			}
 			else
 				member = ctx.Member;
+		else
+			member = await ctx.Guild.GetMemberAsync(ctx.UserId);
 
 		if (member is null)
 		{

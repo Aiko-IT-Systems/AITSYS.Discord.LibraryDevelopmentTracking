@@ -131,6 +131,18 @@ public class NotionDataSourceQueryResult
 		public List<RichText> RichText { get; set; }
 	}
 
+	public class ModifiedBy
+	{
+		[JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
+		public string Id { get; set; }
+
+		[JsonProperty("type", NullValueHandling = NullValueHandling.Ignore)]
+		public string Type { get; set; }
+
+		[JsonProperty("rich_text", NullValueHandling = NullValueHandling.Ignore)]
+		public List<RichText> RichText { get; set; }
+	}
+
 	public class Parent
 	{
 		[JsonProperty("type", NullValueHandling = NullValueHandling.Ignore)]
@@ -159,6 +171,9 @@ public class NotionDataSourceQueryResult
 
 		[JsonProperty("discord.builders Support", NullValueHandling = NullValueHandling.Ignore)]
 		public DiscordBuildersSupport DiscordBuildersSupport { get; set; }
+
+		[JsonProperty("Modified By", NullValueHandling = NullValueHandling.Ignore)]
+		public ModifiedBy ModifiedBy { get; set; }
 
 		[JsonProperty("ID", NullValueHandling = NullValueHandling.Ignore)]
 		public ID ID { get; set; }

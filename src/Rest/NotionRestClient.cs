@@ -84,7 +84,7 @@ public sealed class NotionRestClient
 		return JsonConvert.DeserializeObject<NotionDataSourceQueryResult>(content);
 	}
 
-	internal async Task<string> UpdatePageAsync(string pageId, string status, string? prCommit, string? version, string? notes)
+	internal async Task<string> UpdatePageAsync(string pageId, ulong userId, string status, string? prCommit, string? version, string? notes)
 	{
 		Console.WriteLine($"Updating Notion page {pageId} with status {status}, prCommit {prCommit}, version {version}, notes {notes}");
 		var payload = JsonConvert.SerializeObject(new LibraryUpdatePayload()
@@ -124,6 +124,18 @@ public sealed class NotionRestClient
 							TextContent = new()
 							{
 								Content = notes
+							}
+						}
+					]
+				},
+				ModifiedBy = new()
+				{
+					RichTexts = [
+						new()
+						{
+							TextContent = new()
+							{
+								Content = userId.ToString()
 							}
 						}
 					]
