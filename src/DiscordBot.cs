@@ -77,7 +77,7 @@ public sealed class DiscordBot
 		this.DiscordClient.ComponentInteractionCreated += Interactions.ComponentInteractionCreated;
 		this.DiscordClient.Ready += async (client, args) => _ = await client.Guilds[Config.DiscordConfig.DiscordGuild].GetAllMembersAsync();
 		this.ApplicationCommandsExtension.RegisterGlobalCommands<LibraryTracking>();
-		this.ApplicationCommandsExtension.RegisterGlobalCommands<LibraryHouseKeeping>();
+		this.ApplicationCommandsExtension.RegisterGuildCommands<LibraryHouseKeeping>(1317206872763404478);
 		this.ApplicationCommandsExtension.RegisterGlobalCommands<Dev>();
 	}
 
