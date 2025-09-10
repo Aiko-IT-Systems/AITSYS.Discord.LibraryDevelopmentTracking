@@ -31,32 +31,26 @@ public static class Utilities
 	/// <item><description>AllowedLibraries: A dictionary of allowed library roles, or null if none.</description></item>
 	/// </list>
 	/// </returns>
-	public static async Task<(bool HasAccess, DiscordMember? Member, Dictionary<ulong, DiscordRole>? AllowedLibraries)> CheckAccessAsync(this InteractionContext ctx, DiscordGuild guild, DiscordConfig config)
+	public static async Task<(bool HasAccess, DiscordMember? Member, Dictionary<ulong, DiscordRole>? AllowedLibraries, bool IsAdmin)> CheckAccessAsync(this InteractionContext ctx, DiscordGuild guild, DiscordConfig config)
 	{
 		// TODO: Adjust as needed
-		var admin = false; //ctx.User.IsStaff || ctx.UserId is 856780995629154305;
+		var admin = ctx.User.IsStaff || ctx.UserId is 856780995629154305;
 		DiscordMember? member = null;
 		if (ctx.GuildId != config.DiscordGuild)
 			if (!guild.TryGetMember(ctx.User.Id, out member))
 			{
 				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"You have to be a member of {ctx.Client.Guilds[DiscordBot.Config.DiscordConfig.DiscordGuild].Name.InlineCode()} to use this command."));
-				return (false, member, null);
+				return (false, member, null, admin);
 			}
 			else
 				member = ctx.Member;
 		else
-			member = await ctx.Guild.GetMemberAsync(ctx.UserId);
+			member = await ctx.Guild.GetMemberAsync(ctx.UserId, true);
 
-		if (member is null)
-		{
-			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Could not retrieve your member information. Please try again later."));
-			return (false, member, null);
-		}
-
-		if (!member.RoleIds.Contains(config.LibraryDeveloperRoleId) && !admin)
+		if (!admin && !member.RoleIds.Contains(config.LibraryDeveloperRoleId))
 		{
 			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("You need to be a library developer to use this command."));
-			return (false, member, null);
+			return (false, member, null, admin);
 		}
 
 		var allowedLibraries = !admin
@@ -66,10 +60,10 @@ public static class Utilities
 		if (allowedLibraries is null or { Count: 0 })
 		{
 			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("You do not have any library roles assigned to you. Please contact a server administrator."));
-			return (false, member, null);
+			return (false, member, null, admin);
 		}
 
-		return (true, member, allowedLibraries);
+		return (true, member, allowedLibraries, admin);
 	}
 
 	/// <summary>

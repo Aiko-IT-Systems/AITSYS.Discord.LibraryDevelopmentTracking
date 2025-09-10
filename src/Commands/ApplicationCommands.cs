@@ -29,7 +29,7 @@ public class LibraryTracking : ApplicationCommandsModule
 		try
 		{
 			var check = await ctx.CheckAccessAsync(ctx.Client.Guilds[DiscordBot.Config.DiscordConfig.DiscordGuild], DiscordBot.Config.DiscordConfig);
-			if (!check.HasAccess || check.Member is null || check.AllowedLibraries is null)
+			if (!check.HasAccess || (check.Member is null && !check.IsAdmin) || check.AllowedLibraries is null)
 				return;
 
 			var page = await DiscordBot.NotionRestClient.GetPageAsync(notion);
@@ -51,7 +51,7 @@ public class LibraryTracking : ApplicationCommandsModule
 
 			var selects = check.AllowedLibraries.GetLibrarySelects(currentDatas);
 			var actionRows = selects.Select(select => new DiscordActionRowComponent([select]));
-			var container = new DiscordContainerComponent([new DiscordSectionComponent([new($"{pageTitle.Header2()}"), new($"### Description\n{pageCallout.Icon.Emoji} {pageCallout.RichText[0].Text.Content}")]).WithThumbnailComponent($"https://www.emoji.family/api/emojis/{page.PageIcon.Emoji}/fluent/png/128"), new DiscordTextDisplayComponent("Please select the library to update".Header3()), .. actionRows], accentColor: DiscordColor.Green);
+			var container = new DiscordContainerComponent([new DiscordSectionComponent([new($"{pageTitle.Header2()}"), new($"### Description\n{pageCallout.Icon.Emoji} {pageCallout.RichText[0].Text.Content}")]).WithThumbnailComponent($"https://www.emoji.family/api/emojis/{page.PageIcon.Emoji}/fluent/png/128"), new DiscordTextDisplayComponent("Please select the library to update".Header3()), .. actionRows, new DiscordTextDisplayComponent(check.IsAdmin ? "Since you're a discord staff or server admin, you are able to modify every library" : "Based on your <id:customize> selected roles, we selected your library / libraries")], accentColor: DiscordColor.Green);
 			var msg = await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container));
 
 			var interactivity = ctx.Client.GetInteractivity();
