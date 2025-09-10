@@ -54,6 +54,7 @@
 				"database_id": "UNIQUE_ID_OF_TRACKING_DATABASE",
 				"data_source_id": "UNIQUE_ID_OF_TRACKING_DATABASE_DATA_SOURCE"
 			}
-		]
+		],
+		"notion_template_page_id": "TEMPLATE_PAGE_ID_FOR_NEW_PAGES"
 	}
 }

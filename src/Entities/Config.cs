@@ -38,6 +38,9 @@ public class NotionConfig
 
 	[JsonProperty("implementation_tracking_config")]
 	public IReadOnlyList<ImplementationTrackingConfig> ImplementationTrackingConfig { get; set; }
+
+	[JsonProperty("notion_template_page_id")]
+	public string NotionTemplatePageId { get; set; }
 }
 
 public class ImplementationTrackingConfig
