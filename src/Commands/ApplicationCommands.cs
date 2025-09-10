@@ -22,7 +22,7 @@ namespace AITSYS.Discord.LibraryDevelopmentTracking.Commands;
 [SlashCommandGroup("library_tracking", "Commands for tracking library development", integrationTypes: [ApplicationCommandIntegrationTypes.GuildInstall, ApplicationCommandIntegrationTypes.UserInstall], allowedContexts: [InteractionContextType.Guild, InteractionContextType.BotDm, InteractionContextType.PrivateChannel])]
 public class LibraryTracking : ApplicationCommandsModule
 {
-	[SlashCommand("update_status", "Update the status of your library for given notion"), SlashCommandCooldown(5, 60, CooldownBucketType.User)]
+	[SlashCommand("update_status", "Update the status of your library for given notion"), SlashCommandCooldown(1, 60, CooldownBucketType.User, typeof(CooldownResponder))]
 	public async Task UpdateLibraryStatusAsync(InteractionContext ctx, [ChoiceProvider(typeof(NotionTrackingListProvider))][Option("notion", "The notion to update")] string notion, [Option("ephemeral", "Whether to hide the output from public (only you can see it). Defaults to true.")] bool ephemeral = true)
 	{
 		if (notion is "26911d38-39e6-80c8-b358-c310c7234bde")
@@ -135,7 +135,7 @@ public class LibraryTracking : ApplicationCommandsModule
 		}
 	}
 
-	[SlashCommand("get_status", "Get the status of a library for given notion"), SlashCommandCooldown(5, 60, CooldownBucketType.Global)]
+	[SlashCommand("get_status", "Get the status of a library for given notion"), SlashCommandCooldown(5, 60, CooldownBucketType.Global, typeof(CooldownResponder))]
 	public async Task GetLibraryStatusAsync(InteractionContext ctx, [Autocomplete(typeof(DiscordLibraryListProvider)), Option("library", "The library to get the status from", true)] string library, [Option("ephemeral", "Whether to hide the output from public (only you can see it). Defaults to true.")] bool ephemeral = true)
 	{
 		try
