@@ -135,7 +135,7 @@ public class LibraryTracking : ApplicationCommandsModule
 		}
 	}
 
-	[SlashCommand("get_status", "Get the status of a library for given notion"), SlashCommandCooldown(5, 60, CooldownBucketType.Global, typeof(CooldownResponder))]
+	[SlashCommand("get_status", "Get the status of a library for all notions"), SlashCommandCooldown(5, 60, CooldownBucketType.Global, typeof(CooldownResponder))]
 	public async Task GetLibraryStatusAsync(InteractionContext ctx, [Autocomplete(typeof(DiscordLibraryListProvider)), Option("library", "The library to get the status from", true)] string library, [Option("ephemeral", "Whether to hide the output from public (only you can see it). Defaults to true.")] bool ephemeral = true)
 	{
 		try
@@ -231,7 +231,21 @@ public class LibraryTracking : ApplicationCommandsModule
 [SlashCommandGroup("housekeeping", "Housekeeping commands for library tracking", integrationTypes: [ApplicationCommandIntegrationTypes.GuildInstall, ApplicationCommandIntegrationTypes.UserInstall], allowedContexts: [InteractionContextType.Guild, InteractionContextType.PrivateChannel, InteractionContextType.BotDm], defaultMemberPermissions: (long)Permissions.Administrator)]
 public class LibraryHouseKeeping : ApplicationCommandsModule
 {
+	[SlashCommand("add_phase", "Add a new phase")]
+	public async Task AddPhaseAsync(InteractionContext ctx, [Option("name", "The name of the phase")] string name)
+	{
+		// Implementation for adding a new phase
+		var phaseName = $"{name.Trim()} - Implementation Statuses";
+		await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithContent($"DUMMY: You have added a new phase: {phaseName}\n-# This is not implemented yet!"));
+	}
 
+	[SlashCommand("slap_library", "Slap a library")]
+	public async Task SlapLibraryAsync(InteractionContext ctx, [Autocomplete(typeof(DiscordLibraryListProvider)), Option("library", "The library to slap", true)] string library)
+	{
+		// Implementation for slapping a library
+		var libraryName = library.Trim();
+		await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithContent($"DUMMY: You have slapped the library: {libraryName}\n-# This is not implemented yet!"));
+	}
 }
 
 [SlashCommandGroup("dev", "Developer commands for library tracking", integrationTypes: [ApplicationCommandIntegrationTypes.GuildInstall, ApplicationCommandIntegrationTypes.UserInstall], allowedContexts: [InteractionContextType.Guild, InteractionContextType.PrivateChannel, InteractionContextType.BotDm]), ApplicationCommandRequireTeamMember]
