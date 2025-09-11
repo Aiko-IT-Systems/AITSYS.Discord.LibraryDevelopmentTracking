@@ -231,20 +231,19 @@ public class LibraryTracking : ApplicationCommandsModule
 [SlashCommandGroup("housekeeping", "Housekeeping commands for library tracking", integrationTypes: [ApplicationCommandIntegrationTypes.GuildInstall, ApplicationCommandIntegrationTypes.UserInstall], allowedContexts: [InteractionContextType.Guild, InteractionContextType.PrivateChannel, InteractionContextType.BotDm], defaultMemberPermissions: (long)Permissions.Administrator)]
 public class LibraryHouseKeeping : ApplicationCommandsModule
 {
-	[SlashCommand("add_phase", "Add a new phase")]
-	public async Task AddPhaseAsync(InteractionContext ctx, [Option("name", "The name of the phase")] string name)
+	[SlashCommand("enable_notion", "Enable a notion to be selected by library maintainers")]
+	public async Task EnableNotionAsync(InteractionContext ctx, [Option("name", "The name of the notion")] string name)
 	{
-		// Implementation for adding a new phase
-		var phaseName = $"{name.Trim()} - Implementation Statuses";
-		await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithContent($"DUMMY: You have added a new phase: {phaseName}\n-# This is not implemented yet!"));
+		// Implementation for enabling a notion
+		var notionName = $"{name.Trim()} - Implementation Statuses";
+		await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithContent($"DUMMY: You have enabled a new notion: {notionName}\n-# This is not implemented yet!"));
 	}
 
 	[SlashCommand("slap_library", "Slap a library")]
 	public async Task SlapLibraryAsync(InteractionContext ctx, [Autocomplete(typeof(DiscordLibraryListProvider)), Option("library", "The library to slap", true)] string library)
 	{
 		// Implementation for slapping a library
-		var libraryName = library.Trim();
-		await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithContent($"DUMMY: You have slapped the library: {libraryName}\n-# This is not implemented yet!"));
+		await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithContent($"DUMMY: You slapped the library: {library}\n-# This is not implemented yet!"));
 	}
 }
 
