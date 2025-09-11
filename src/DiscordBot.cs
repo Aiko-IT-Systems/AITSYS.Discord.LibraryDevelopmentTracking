@@ -32,13 +32,14 @@ public sealed class DiscordBot
 
 	internal InteractivityExtension InteractivityExtension { get; private set; }
 
-	public static CancellationTokenSource CancellationTokenSource { get; } = new();
 
-	public DiscordBot(Config config)
+	internal static CancellationTokenSource Shutdown { get; } = new();
+
+	public DiscordBot(Config config, bool useProxy = false)
 	{
 		ArgumentNullException.ThrowIfNull(config);
 		Config = config;
-		WebProxy? proxy = null; // new WebProxy("127.0.0.1", 8000);
+		var proxy = useProxy ? new WebProxy("127.0.0.1", 8000) : null;
 		NotionRestClient = new NotionRestClient(Config.NotionConfig, proxy);
 		this.DiscordClient = new DiscordClient(new DiscordConfiguration()
 		{
@@ -85,7 +86,7 @@ public sealed class DiscordBot
 	{
 		await this.DiscordClient.ConnectAsync();
 		await DummyCache.InitAsync();
-		while (!CancellationTokenSource.IsCancellationRequested)
+		while (!Shutdown.IsCancellationRequested)
 		{
 			await Task.Delay(1000);
 		}

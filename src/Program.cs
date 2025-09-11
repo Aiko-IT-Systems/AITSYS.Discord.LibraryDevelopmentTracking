@@ -6,29 +6,36 @@ namespace AITSYS.Discord.LibraryDevelopmentTracking;
 
 internal class Program
 {
+	internal static CancellationTokenSource RestartLock = new();
+
 	static void Main(string[] args)
 	{
 		Console.WriteLine("Hello, World!");
-		Config? config;
-		try
+		while (!RestartLock.IsCancellationRequested)
 		{
-			// TODO: Fill out the config.json
-			// NOTE: This will only work for notion pages based on the following template: https://www.notion.so/marketplace/templates/discord-lib-devs-implementations-tracking
-			var configContent = File.ReadAllText("config.json");
-			config = Newtonsoft.Json.JsonConvert.DeserializeObject<Config>(configContent);
-			if (config == null)
+			Config? config;
+			try
 			{
-				throw new Exception("Failed to load configuration.");
+				// TODO: Fill out the config.json
+				// NOTE: This will only work for notion pages based on the following template: https://www.notion.so/marketplace/templates/discord-lib-devs-implementations-tracking
+				var configContent = File.ReadAllText("config.json");
+				config = Newtonsoft.Json.JsonConvert.DeserializeObject<Config>(configContent);
+				if (config == null)
+				{
+					throw new Exception("Failed to load configuration.");
+				}
 			}
-		}
-		catch (Exception ex)
-		{
-			Console.WriteLine($"Error loading configuration: {ex.Message}");
-			return;
-		}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error loading configuration: {ex.Message}");
+				return;
+			}
 
-		DiscordBot bot = new(config);
-		bot.StartAsync().GetAwaiter().GetResult();
+			DiscordBot bot = new(config, true);
+			bot.StartAsync().GetAwaiter().GetResult();
+			if (!RestartLock.IsCancellationRequested)
+				Console.WriteLine("Restarting bot...");
+		}
 		Console.WriteLine("Bye!");
 	}
 }
