@@ -42,19 +42,17 @@ public static class Utilities
 				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"You have to be a member of {ctx.Client.Guilds[DiscordBot.Config.DiscordConfig.DiscordGuild].Name.InlineCode()} to use this command."));
 				return (false, member, null, admin);
 			}
-			else
-				member = ctx.Member;
 		else
-			member = await ctx.Guild.GetMemberAsync(ctx.UserId, true);
+			member = await guild.GetMemberAsync(ctx.UserId, true);
 
-		if (!admin && !member.RoleIds.Contains(config.LibraryDeveloperRoleId))
+		if (!admin && !(member?.RoleIds.Contains(config.LibraryDeveloperRoleId) ?? false))
 		{
 			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("You need to be a library developer to use this command."));
 			return (false, member, null, admin);
 		}
 
 		var allowedLibraries = !admin
-			? member.Roles.Where(role => DiscordBot.Config.DiscordConfig.LibraryRoleMapping.ContainsKey(role.Id)).ToDictionary(role => role.Id, role => role)
+			? member?.Roles.Where(role => DiscordBot.Config.DiscordConfig.LibraryRoleMapping.ContainsKey(role.Id)).ToDictionary(role => role.Id, role => role) ?? []
 			: DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Select(map => guild.GetRole(map.Key)!).ToDictionary(role => role.Id, role => role);
 
 		if (allowedLibraries is null or { Count: 0 })
