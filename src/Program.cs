@@ -31,7 +31,11 @@ internal class Program
 				return;
 			}
 
+#if DEBUG
 			DiscordBot bot = new(config, true);
+#else
+			DiscordBot bot = new(config, false);
+#endif
 			bot.StartAsync().GetAwaiter().GetResult();
 			if (!RestartLock.IsCancellationRequested)
 				Console.WriteLine("Restarting bot...");
