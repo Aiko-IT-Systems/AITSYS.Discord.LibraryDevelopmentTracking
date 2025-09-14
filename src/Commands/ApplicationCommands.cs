@@ -33,7 +33,7 @@ public class LibraryTracking : ApplicationCommandsModule
 		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, ephemeral ? new DiscordInteractionResponseBuilder().AsEphemeral() : null);
 		try
 		{
-			var check = await ctx.CheckAccessAsync(ctx.Client.Guilds[DiscordBot.Config.DiscordConfig.DiscordGuild], DiscordBot.Config.DiscordConfig);
+			var check = await ctx.CheckAccessAsync(DiscordBot.Config.DiscordConfig);
 			if (!check.HasAccess || (check.Member is null && !check.IsAdmin) || check.AllowedLibraries is null)
 				return;
 

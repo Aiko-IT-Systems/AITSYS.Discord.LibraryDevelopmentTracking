@@ -21,8 +21,8 @@ public static class Utilities
 	/// Checks if the user has access to library developer commands and returns access status, the member, and allowed libraries.
 	/// </summary>
 	/// <param name="ctx">The interaction context.</param>
-	/// <param name="guild">The Discord guild.</param>
 	/// <param name="config">The Discord configuration.</param>
+	/// 
 	/// <returns>
 	/// A tuple containing:
 	/// <list type="bullet">
@@ -31,19 +31,12 @@ public static class Utilities
 	/// <item><description>AllowedLibraries: A dictionary of allowed library roles, or null if none.</description></item>
 	/// </list>
 	/// </returns>
-	public static async Task<(bool HasAccess, DiscordMember? Member, Dictionary<ulong, DiscordRole>? AllowedLibraries, bool IsAdmin)> CheckAccessAsync(this InteractionContext ctx, DiscordGuild guild, DiscordConfig config)
+	public static async Task<(bool HasAccess, DiscordMember? Member, Dictionary<ulong, DiscordRole>? AllowedLibraries, bool IsAdmin)> CheckAccessAsync(this InteractionContext ctx, DiscordConfig config)
 	{
 		// TODO: Adjust as needed
 		var admin = ctx.User.IsStaff || ctx.UserId is 856780995629154305;
-		DiscordMember? member = null;
-		if (ctx.GuildId != config.DiscordGuild)
-			if (!guild.TryGetMember(ctx.User.Id, out member))
-			{
-				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent($"You have to be a member of {ctx.Client.Guilds[DiscordBot.Config.DiscordConfig.DiscordGuild].Name.InlineCode()} to use this command."));
-				return (false, member, null, admin);
-			}
-		else
-			member = await guild.GetMemberAsync(ctx.UserId, true);
+
+		ctx.Client.Guilds[config.DiscordGuild].Members.TryGetValue(ctx.User.Id, out var member);
 
 		if (!admin && !(member?.RoleIds.Contains(config.LibraryDeveloperRoleId) ?? false))
 		{
@@ -52,8 +45,8 @@ public static class Utilities
 		}
 
 		var allowedLibraries = !admin
-			? member?.Roles.Where(role => DiscordBot.Config.DiscordConfig.LibraryRoleMapping.ContainsKey(role.Id)).ToDictionary(role => role.Id, role => role) ?? []
-			: DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Select(map => guild.GetRole(map.Key)!).ToDictionary(role => role.Id, role => role);
+			? member?.Roles.Where(role => config.LibraryRoleMapping.ContainsKey(role.Id)).ToDictionary(role => role.Id, role => role) ?? []
+			: config.LibraryRoleMapping.Select(map => ctx.Client.Guilds[config.DiscordGuild].GetRole(map.Key)!).ToDictionary(role => role.Id, role => role);
 
 		if (allowedLibraries is null or { Count: 0 })
 		{
