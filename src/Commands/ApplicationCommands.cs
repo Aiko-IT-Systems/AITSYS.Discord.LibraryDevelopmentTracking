@@ -25,11 +25,6 @@ public class LibraryTracking : ApplicationCommandsModule
 	[SlashCommand("update_status", "Update the status of your library for given notion"), SlashCommandCooldown(1, 60, CooldownBucketType.User, typeof(CooldownResponder))]
 	public async Task UpdateLibraryStatusAsync(InteractionContext ctx, [ChoiceProvider(typeof(NotionTrackingListProvider))][Option("notion", "The notion to update")] string notion, [Option("ephemeral", "Whether to hide the output from public (only you can see it). Defaults to true.")] bool ephemeral = true)
 	{
-		if (notion is "26911d38-39e6-80c8-b358-c310c7234bde")
-		{
-			await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Phase 3 isn't live yet.")], accentColor: DiscordColor.DarkRed)));
-			return;
-		}
 		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, ephemeral ? new DiscordInteractionResponseBuilder().AsEphemeral() : null);
 		try
 		{
@@ -164,11 +159,6 @@ public class LibraryTracking : ApplicationCommandsModule
 	[SlashCommand("statistics", "Get statistics for given notion"), SlashCommandCooldown(5, 60, CooldownBucketType.Global)]
 	public async Task GetStatisticsAsync(InteractionContext ctx, [ChoiceProvider(typeof(NotionTrackingListProvider))][Option("notion", "The notion to get the statistics for")] string notion, [Option("color_mode", "The color mode for the statistics")] ColorMode colorMode, [Option("large_statistics", "Whether to display the charts large. Defaults to false.")] bool largeStatistics = false, [Option("ephemeral", "Whether to hide the output from public (only you can see it). Defaults to true.")] bool ephemeral = true)
 	{
-		if (notion is "26911d38-39e6-80c8-b358-c310c7234bde")
-		{
-			await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Phase 3 isn't live yet.")], accentColor: DiscordColor.DarkRed)));
-			return;
-		}
 		try
 			{
 				await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, ephemeral ? new DiscordInteractionResponseBuilder().AsEphemeral() : null);
