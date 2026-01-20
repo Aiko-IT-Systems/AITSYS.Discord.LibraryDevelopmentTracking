@@ -11,10 +11,10 @@
 	  <PackageReference Include="ScottPlot" Version="5.0.56" />
           <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.116.1" />
 	  <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.116.1" />
-	  <PackageReference Include="DisCatSharp" Version="10.7.0-nightly-026" />
-	  <PackageReference Include="DisCatSharp.ApplicationCommands" Version="10.7.0-nightly-026" />
-	  <PackageReference Include="DisCatSharp.Common" Version="10.7.0-nightly-026" />
-	  <PackageReference Include="DisCatSharp.Interactivity" Version="10.7.0-nightly-026" />
+	  <PackageReference Include="DisCatSharp" Version="10.7.0-nightly-054" />
+	  <PackageReference Include="DisCatSharp.ApplicationCommands" Version="10.7.0-nightly-054" />
+	  <PackageReference Include="DisCatSharp.Common" Version="10.7.0-nightly-054" />
+	  <PackageReference Include="DisCatSharp.Interactivity" Version="10.7.0-nightly-054" />
 	</ItemGroup>
 
 <Target Name="CopyFilesAfterPublish" AfterTargets="AfterPublish">
