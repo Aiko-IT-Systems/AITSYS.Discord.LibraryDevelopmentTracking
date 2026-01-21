@@ -108,7 +108,7 @@ public static class Utilities
 			return selects;
 
 		var i = 1;
-		var options = allowedLibraries.Select(x => new DiscordStringSelectComponentOption(x.Value.Name, x.Key.ToString(), emoji: new DiscordComponentEmoji(LanguageEmojis.Map[string.Join("", currentDatas[x.Value.Name].Results[0].Properties.Language.RichText.SelectMany(x => x.Text.Content))]))).ToList();
+		var options = allowedLibraries.Select(x => new DiscordStringSelectComponentOption(x.Value.Name, x.Key.ToString(), emoji: LanguageEmojis.Map.TryGetValue(string.Join("", currentDatas[x.Value.Name].Results[0].Properties.Language.RichText.SelectMany(x => x.Text.Content)), out var val) ? new DiscordComponentEmoji(val) : null!)).ToList();
 		foreach (var chunk in options.Chunk(25))
 		{
 			var count = allowedLibraries.Count <= 25 ? string.Empty : $"(Page {i}) ";

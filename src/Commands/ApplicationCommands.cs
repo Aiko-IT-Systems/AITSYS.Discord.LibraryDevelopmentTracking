@@ -94,23 +94,19 @@ public class LibraryTracking : ApplicationCommandsModule
 
 			var newStatus = (modalResult.Result.Interaction.Data.ModalComponents
 				.OfType<DiscordLabelComponent>()
-				.Where(x => x.Component is DiscordStringSelectComponent y && y.CustomId is "status")
-				.FirstOrDefault()?.Component as DiscordStringSelectComponent)?.SelectedValues?.FirstOrDefault();
+				.FirstOrDefault(x => x.Component is DiscordStringSelectComponent y && y.CustomId is "status")?.Component as DiscordStringSelectComponent)?.SelectedValues?.FirstOrDefault();
 			newStatus = string.IsNullOrWhiteSpace(newStatus) ? currentStatus : newStatus;
 			var newPrCommit = (modalResult.Result.Interaction.Data.ModalComponents
 				.OfType<DiscordLabelComponent>()
-				.Where(x => x.Component is DiscordTextInputComponent y && y.CustomId is "pr_commit")
-				.FirstOrDefault()?.Component as DiscordTextInputComponent)?.Value;
+				.FirstOrDefault(x => x.Component is DiscordTextInputComponent y && y.CustomId is "pr_commit")?.Component as DiscordTextInputComponent)?.Value;
 			newPrCommit = string.IsNullOrWhiteSpace(newPrCommit) ? null : newPrCommit;
 			var newVersion = (modalResult.Result.Interaction.Data.ModalComponents
 				.OfType<DiscordLabelComponent>()
-				.Where(x => x.Component is DiscordTextInputComponent y && y.CustomId is "version")
-				.FirstOrDefault()?.Component as DiscordTextInputComponent)?.Value;
+				.FirstOrDefault(x => x.Component is DiscordTextInputComponent y && y.CustomId is "version")?.Component as DiscordTextInputComponent)?.Value;
 			newVersion = string.IsNullOrWhiteSpace(newVersion) ? null : newVersion;
 			var newNotes = (modalResult.Result.Interaction.Data.ModalComponents
 				.OfType<DiscordLabelComponent>()
-				.Where(x => x.Component is DiscordTextInputComponent y && y.CustomId is "notes")
-				.FirstOrDefault()?.Component as DiscordTextInputComponent)?.Value;
+				.FirstOrDefault(x => x.Component is DiscordTextInputComponent y && y.CustomId is "notes")?.Component as DiscordTextInputComponent)?.Value;
 			newNotes = string.IsNullOrWhiteSpace(newNotes) ? null : newNotes;
 			var res = await DiscordBot.NotionRestClient.UpdatePageAsync(libraryData.Results[0].Id, ctx.UserId, newStatus, newPrCommit, newVersion, newNotes);
 			if (!res.Contains("error"))
