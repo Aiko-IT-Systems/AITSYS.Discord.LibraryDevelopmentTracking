@@ -22,7 +22,7 @@ public static class Utilities
 	/// </summary>
 	/// <param name="ctx">The interaction context.</param>
 	/// <param name="config">The Discord configuration.</param>
-	/// 
+	///
 	/// <returns>
 	/// A tuple containing:
 	/// <list type="bullet">
@@ -34,7 +34,7 @@ public static class Utilities
 	public static async Task<(bool HasAccess, DiscordMember? Member, Dictionary<ulong, DiscordRole>? AllowedLibraries, bool IsAdmin)> CheckAccessAsync(this InteractionContext ctx, DiscordConfig config)
 	{
 		// TODO: Adjust as needed
-		var admin = ctx.User.IsStaff || ctx.UserId is 856780995629154305;
+		var admin = ctx.User.IsStaff;// || ctx.UserId is 856780995629154305;
 
 		ctx.Client.Guilds[config.DiscordGuild].Members.TryGetValue(ctx.User.Id, out var member);
 
