@@ -68,7 +68,8 @@ public sealed class DiscordBot
 			PaginationBehaviour = PaginationBehaviour.WrapAround,
 			PaginationDeletion = PaginationDeletion.DeleteMessage,
 			PollBehaviour = PollBehaviour.DeleteEmojis,
-			AckPaginationButtons = true
+			AckPaginationButtons = true,
+			Timeout = TimeSpan.FromMinutes(5)
 		});
 		this.Setup();
 	}

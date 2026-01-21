@@ -71,6 +71,7 @@ public class LibraryTracking : ApplicationCommandsModule
 			var prCommit = libraryData.Results[0].Properties.PullRequestCommit.Url;
 			var version = libraryData.Results[0].Properties.ReleasedInVersion.RichText.Count is not 0 ? string.Join("", libraryData.Results[0].Properties.ReleasedInVersion.RichText.SelectMany(x => x.Text.Content)) : null;
 			var notes = libraryData.Results[0].Properties.Notes.RichText.Count is not 0 ? string.Join("", libraryData.Results[0].Properties.Notes.RichText.SelectMany(x => x.Text.Content)) : null;
+			var discordBuildersSupport = libraryData.Results[0].Properties.DiscordBuildersSupport.Checkbox;
 			var lastModifiedBy = libraryData.Results[0].Properties.ModifiedBy.RichText.Count is not 0 ? Convert.ToUInt64(string.Join("", libraryData.Results[0].Properties.ModifiedBy.RichText.SelectMany(x => x.Text.Content))) : Convert.ToUInt64(856780995629154305);
 			var lastModifiedByUser = await ctx.Client.GetUserAsync(lastModifiedBy);
 
@@ -80,6 +81,7 @@ public class LibraryTracking : ApplicationCommandsModule
 			modalBuilder.AddLabelComponent(new("Pull Request / Commit", "The pull request or commit implementing the changes / features", new DiscordTextInputComponent(TextComponentStyle.Small, "pr_commit", "Pull Request / Commit with implementation", null, null, false, prCommit)));
 			modalBuilder.AddLabelComponent(new("Version", "The version number releasing the change / feature", new DiscordTextInputComponent(TextComponentStyle.Small, "version", "Released Version", null, null, false, version)));
 			modalBuilder.AddLabelComponent(new("Details", "Additional notes (like delays, etc)", new DiscordTextInputComponent(TextComponentStyle.Paragraph, "notes", "Notes", null, null, false, notes)));
+			//modalBuilder.AddLabelComponent(new("Discord.builders Support", "Whether the implementation is added to discord.builder", new DiscordCheckboxComponent("discord_builders", discordBuildersSupport)));
 			await result.Result.Interaction.CreateInteractionModalResponseAsync(modalBuilder);
 			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Currently modifying {selectedLibrary.Name}.\nPlease fill out the modal to update the status.")], accentColor: DiscordColor.Orange)));
 
