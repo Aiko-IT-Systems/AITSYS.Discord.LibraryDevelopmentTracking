@@ -96,6 +96,19 @@ public static class Utilities
 	}
 
 	/// <summary>
+	/// Creates a Discord string select component for status selection from a Notion data source.
+	/// </summary>
+	/// <param name="dataSource">The Notion data source result.</param>
+	/// <param name="setAsDefault">The status to set as default.</param>
+	/// <returns>A DiscordStringSelectComponent for status selection.</returns>
+	internal static DiscordStringSelectComponent GetStatusSelectMenuFromDataSource(this NotionSearchDataSourceResult.DataSourceResult dataSource, string setAsDefault)
+	{
+		var options = dataSource.Properties.Status.InnerStatus.Options.ToDictionary(option => option.Id, option => option.Name);
+		DiscordStringSelectComponent statusSelect = new("Select the current status", options.Select(x => new DiscordStringSelectComponentOption(x.Value, x.Key, isDefault: x.Value.Equals(setAsDefault, StringComparison.InvariantCultureIgnoreCase))), "status", 1, 1, required: true);
+		return statusSelect;
+	}
+
+	/// <summary>
 	/// Creates Discord string select components for selecting libraries based on allowed libraries and current data.
 	/// </summary>
 	/// <param name="allowedLibraries">A dictionary of allowed library roles.</param>
