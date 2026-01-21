@@ -76,7 +76,7 @@ public class LibraryTracking : ApplicationCommandsModule
 
 			var modalBuilder = new DiscordInteractionModalBuilder("Library Status Update");
 			modalBuilder.AddTextDisplayComponent(new($"## Please adjust the data as needed\nThis will modify {selectedLibrary.Mention} in {pageTitle.Bold()}.\nThe current data is filled out.\n\n-# Last edited by: {lastModifiedByUser.Mention()} ({lastModifiedBy})\n-# Last modification: {(libraryData.Results[0].LastEditedTime.HasValue ? libraryData.Results[0].LastEditedTime!.Value.Timestamp() : libraryData.Results[0].CreatedTime.HasValue ? libraryData.Results[0].CreatedTime!.Value.Timestamp() : "Unknown")}"));
-			modalBuilder.AddLabelComponent(new("Status", "The status of the implementation", dataSource.GetStatusSelectMenuFromDataSource(currentStatus)));
+			modalBuilder.AddLabelComponent(new("Status", "The status of the implementation", dataSource.GetStatusRadioSelectFromDataSource(currentStatus)));
 			modalBuilder.AddLabelComponent(new("Pull Request / Commit", "The pull request or commit implementing the changes / features", new DiscordTextInputComponent(TextComponentStyle.Small, "pr_commit", "Pull Request / Commit with implementation", null, null, false, prCommit)));
 			modalBuilder.AddLabelComponent(new("Version", "The version number releasing the change / feature", new DiscordTextInputComponent(TextComponentStyle.Small, "version", "Released Version", null, null, false, version)));
 			modalBuilder.AddLabelComponent(new("Details", "Additional notes (like delays, etc)", new DiscordTextInputComponent(TextComponentStyle.Paragraph, "notes", "Notes", null, null, false, notes)));
@@ -94,7 +94,7 @@ public class LibraryTracking : ApplicationCommandsModule
 
 			var newStatus = (modalResult.Result.Interaction.Data.ModalComponents
 				.OfType<DiscordLabelComponent>()
-				.FirstOrDefault(x => x.Component is DiscordStringSelectComponent y && y.CustomId is "status")?.Component as DiscordStringSelectComponent)?.SelectedValues?.FirstOrDefault();
+				.FirstOrDefault(x => x.Component is DiscordRadioGroupComponent y && y.CustomId is "status")?.Component as DiscordRadioGroupComponent)?.SelectedValue;
 			newStatus = string.IsNullOrWhiteSpace(newStatus) ? currentStatus : newStatus;
 			var newPrCommit = (modalResult.Result.Interaction.Data.ModalComponents
 				.OfType<DiscordLabelComponent>()

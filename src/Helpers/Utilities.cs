@@ -34,7 +34,7 @@ public static class Utilities
 	public static async Task<(bool HasAccess, DiscordMember? Member, Dictionary<ulong, DiscordRole>? AllowedLibraries, bool IsAdmin)> CheckAccessAsync(this InteractionContext ctx, DiscordConfig config)
 	{
 		// TODO: Adjust as needed
-		var admin = ctx.User.IsStaff;// || ctx.UserId is 856780995629154305;
+		var admin = ctx.User.IsStaff || ctx.UserId is 856780995629154305;
 
 		ctx.Client.Guilds[config.DiscordGuild].Members.TryGetValue(ctx.User.Id, out var member);
 
@@ -83,15 +83,15 @@ public static class Utilities
 	}
 
 	/// <summary>
-	/// Creates a Discord string select component for status selection from a Notion data source.
+	/// Creates a Discord radio group component for status selection from a Notion data source.
 	/// </summary>
 	/// <param name="dataSource">The Notion data source result.</param>
 	/// <param name="setAsDefault">The status to set as default.</param>
-	/// <returns>A DiscordStringSelectComponent for status selection.</returns>
-	internal static DiscordStringSelectComponent GetStatusSelectMenuFromDataSource(this NotionSearchDataSourceResult.DataSourceResult dataSource, string setAsDefault)
+	/// <returns>A DiscordRadioGroupComponent for status selection.</returns>
+	internal static DiscordRadioGroupComponent GetStatusRadioSelectFromDataSource(this NotionSearchDataSourceResult.DataSourceResult dataSource, string setAsDefault)
 	{
-		var options = dataSource.Properties.Status.InnerStatus.Options.ToDictionary(option => option.Id, option => option.Name);
-		DiscordStringSelectComponent statusSelect = new("Select the current status", options.Select(x => new DiscordStringSelectComponentOption(x.Value, x.Key, isDefault: x.Value.Equals(setAsDefault, StringComparison.InvariantCultureIgnoreCase))), "status", 1, 1, required: true);
+		var options = dataSource.Properties.Status.InnerStatus.Options.ToDictionary(option => option.Id, option => option.Name).Select(x => new DiscordRadioGroupComponentOption(x.Value, x.Key, isDefault: x.Value.Equals(setAsDefault, StringComparison.InvariantCultureIgnoreCase)));
+		DiscordRadioGroupComponent statusSelect = new(options, "status", required: true);
 		return statusSelect;
 	}
 
