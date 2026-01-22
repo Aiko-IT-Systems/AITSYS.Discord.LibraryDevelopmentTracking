@@ -373,6 +373,8 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 		}
 		else
 		{
+			var interaction = result.Result.Interaction;
+			await interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
 			var selectedRoleIds = result.Result.Values.Select(x => Convert.ToUInt64(x));
 			var invite = await ctx.Channel.CreateInviteAsync(maxUses: 1, unique: true, roleIds: [..selectedRoleIds], targetUserIds: [user.Id]);
 			while (!processed)
@@ -385,12 +387,12 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				}
 				else if (jobStatus.Status is InviteTargetUsersJobStatus.Failed)
 				{
-					await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create an invite for {user.Mention()}: {jobStatus.ErrorMessage!.BlockCode("json")}.")], accentColor: DiscordColor.Red)).WithAllowedMentions(Mentions.None));
+					await interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create an invite for {user.Mention()}: {jobStatus.ErrorMessage!.BlockCode("json")}.")], accentColor: DiscordColor.Red)).WithAllowedMentions(Mentions.None));
 					return;
 				}
 				await Task.Delay(5000);
 			}
-			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"You have selected the roles <@&{string.Join(">, <@&", selectedRoleIds)}>\nHere is their invite link: {invite.Url}")], accentColor: DiscordColor.Green)).WithAllowedMentions(Mentions.None));
+			await interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"You have selected the roles <@&{string.Join(">, <@&", selectedRoleIds)}>\nHere is their invite link: {invite.Url}")], accentColor: DiscordColor.Green)).WithAllowedMentions(Mentions.None));
 		}
 	}
 }
