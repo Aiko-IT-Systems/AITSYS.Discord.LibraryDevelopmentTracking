@@ -353,7 +353,8 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 		var processed = false;
 		if (result.TimedOut)
 		{
-			var invite = await ctx.Channel.CreateInviteAsync(maxUses: 1, unique: true, targetUserIds: [user.Id]);
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container.AddComponent(new DiscordTextDisplayComponent("Creating invite.."))]).DisableAllComponents());
+			var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, targetUserIds: [user.Id]);
 			while (!processed)
 			{
 				var jobStatus = await ctx.Client.GetInviteTargetUsersJobStatusAsync(invite.Code);
@@ -375,8 +376,9 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 		{
 			var interaction = result.Result.Interaction;
 			await interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container.AddComponent(new DiscordTextDisplayComponent("Creating invite.."))]).DisableAllComponents());
 			var selectedRoleIds = result.Result.Values.Select(x => Convert.ToUInt64(x));
-			var invite = await ctx.Channel.CreateInviteAsync(maxUses: 1, unique: true, roleIds: [..selectedRoleIds], targetUserIds: [user.Id]);
+			var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, roleIds: [..selectedRoleIds], targetUserIds: [user.Id]);
 			while (!processed)
 			{
 				var jobStatus = await ctx.Client.GetInviteTargetUsersJobStatusAsync(invite.Code);
