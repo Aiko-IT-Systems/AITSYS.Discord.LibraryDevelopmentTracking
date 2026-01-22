@@ -345,7 +345,7 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 	{
 		var interactivity = ctx.Client.GetInteractivity();
 		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
-		var roleSelect = new DiscordRoleSelectComponent("Select the roles to assign to the user", minOptions:0, maxOptions: ctx.Guild!.Roles.Count);
+		var roleSelect = new DiscordRoleSelectComponent("Select the roles to assign to the user", minOptions:0, maxOptions: 25);
 		var actionRow = new DiscordActionRowComponent([roleSelect]);
 		var container = new DiscordContainerComponent([new DiscordTextDisplayComponent($"Please select the roles to assign to {user.Mention()}.\nDon't select anything for 20 seconds to skip roles."), actionRow], accentColor: DiscordColor.Blue);
 		var msg = await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container]));
