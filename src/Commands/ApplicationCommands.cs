@@ -339,6 +339,60 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 		// Implementation for slapping a library
 		await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithContent($"DUMMY: You slapped the library: {library}\n-# This is not implemented yet!"));
 	}
+
+	[SlashCommand("invite_user", "Invite a specific user")]
+	public async Task InviteUserAsync(InteractionContext ctx, [Option("user", "The user to invite")] DiscordUser user)
+	{
+		var interactivity = ctx.Client.GetInteractivity();
+		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+		var roleSelect = new DiscordRoleSelectComponent("Select the roles to assign to the user", minOptions:0, maxOptions: ctx.Guild!.Roles.Count);
+		var actionRow = new DiscordActionRowComponent([roleSelect]);
+		var container = new DiscordContainerComponent([new DiscordTextDisplayComponent($"Please select the roles to assign to {user.Mention()}.\nDon't select anything for 20 seconds to skip roles."), actionRow], accentColor: DiscordColor.Blue);
+		var msg = await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container]));
+		var result = await interactivity.WaitForSelectAsync(msg, roleSelect.CustomId!, ComponentType.RoleSelect, TimeSpan.FromSeconds(20));
+		var processed = false;
+		if (result.TimedOut)
+		{
+			var invite = await ctx.Channel.CreateInviteAsync(maxUses: 1, unique: true, targetUserIds: [user.Id]);
+			while (!processed)
+			{
+				var jobStatus = await ctx.Client.GetInviteTargetUsersJobStatusAsync(invite.Code);
+				if (jobStatus.Status is InviteTargetUsersJobStatus.Completed)
+				{
+					processed = true;
+					break;
+				}
+				else if (jobStatus.Status is InviteTargetUsersJobStatus.Failed)
+				{
+					await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create an invite for {user.Mention()}: {jobStatus.ErrorMessage!.BlockCode("json")}.")], accentColor: DiscordColor.Red)).WithAllowedMentions(Mentions.None));
+					return;
+				}
+				await Task.Delay(5000);
+			}
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"You did not select any roles for {user.Mention()}.\nHere is their invite link: {invite.Url}")], accentColor: DiscordColor.Yellow)).WithAllowedMentions(Mentions.None));
+		}
+		else
+		{
+			var selectedRoleIds = result.Result.Values.Select(x => Convert.ToUInt64(x));
+			var invite = await ctx.Channel.CreateInviteAsync(maxUses: 1, unique: true, roleIds: [..selectedRoleIds], targetUserIds: [user.Id]);
+			while (!processed)
+			{
+				var jobStatus = await ctx.Client.GetInviteTargetUsersJobStatusAsync(invite.Code);
+				if (jobStatus.Status is InviteTargetUsersJobStatus.Completed)
+				{
+					processed = true;
+					break;
+				}
+				else if (jobStatus.Status is InviteTargetUsersJobStatus.Failed)
+				{
+					await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create an invite for {user.Mention()}: {jobStatus.ErrorMessage!.BlockCode("json")}.")], accentColor: DiscordColor.Red)).WithAllowedMentions(Mentions.None));
+					return;
+				}
+				await Task.Delay(5000);
+			}
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"You have selected the roles <@&{string.Join(">, <@&", selectedRoleIds)}>\nHere is their invite link: {invite.Url}")], accentColor: DiscordColor.Green)).WithAllowedMentions(Mentions.None));
+		}
+	}
 }
 
 [SlashCommandGroup("dev", "Developer commands for library tracking", integrationTypes: [ApplicationCommandIntegrationTypes.GuildInstall, ApplicationCommandIntegrationTypes.UserInstall], allowedContexts: [InteractionContextType.Guild, InteractionContextType.PrivateChannel, InteractionContextType.BotDm]), ApplicationCommandRequireTeamMember]
