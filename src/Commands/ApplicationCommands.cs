@@ -489,6 +489,76 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 		}
 	}
 
+	[SlashCommand("disable_notion", "Disable a notion from being selected by library maintainers")]
+	public async Task DisableNotionAsync(InteractionContext ctx)
+	{
+		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+		try
+		{
+			var enabledNotions = DiscordBot.Config.NotionConfig.ImplementationTrackingConfig;
+			if (enabledNotions.Count is 0)
+			{
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
+					new DiscordTextDisplayComponent("No Notions Enabled".Header2()),
+					new DiscordTextDisplayComponent("There are no enabled notions to disable.")
+				], accentColor: DiscordColor.Yellow)));
+				return;
+			}
+
+			var options = enabledNotions.Select(n =>
+				new DiscordStringSelectComponentOption(n.Name, n.DataSourceId, $"Page: {n.PageId[..Math.Min(n.PageId.Length, 36)]}")
+			).Take(25).ToList();
+
+			var select = new DiscordStringSelectComponent("Select a notion to disable", options, minOptions: 1, maxOptions: 1);
+			var container = new DiscordContainerComponent([
+				new DiscordTextDisplayComponent("Disable a Notion".Header2()),
+				new DiscordTextDisplayComponent($"Currently {enabledNotions.Count} notion{(enabledNotions.Count is 1 ? "" : "s")} enabled.\nSelect one to remove:"),
+				new DiscordActionRowComponent([select])
+			], accentColor: DiscordColor.Orange);
+			var msg = await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container));
+
+			var interactivity = ctx.Client.GetInteractivity();
+			var result = await interactivity.WaitForSelectAsync(msg, x => x.User.Id == ctx.UserId && x.Id == select.CustomId, ComponentType.StringSelect);
+
+			if (result.TimedOut)
+			{
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("You took too long to respond. Please try again.")], accentColor: DiscordColor.Red)));
+				return;
+			}
+
+			await result.Result.Interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+
+			var selectedDataSourceId = result.Result.Values.First();
+			var entry = enabledNotions.FirstOrDefault(x => x.DataSourceId == selectedDataSourceId);
+			if (entry is null)
+			{
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("The selected notion was not found in the configuration.")], accentColor: DiscordColor.DarkRed)));
+				return;
+			}
+
+			enabledNotions.Remove(entry);
+
+			var configJson = Newtonsoft.Json.JsonConvert.SerializeObject(DiscordBot.Config, Newtonsoft.Json.Formatting.Indented);
+			await File.WriteAllTextAsync("config.json", configJson);
+
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
+				new DiscordTextDisplayComponent("Notion Disabled Successfully 🗑️".Header2()),
+				new DiscordTextDisplayComponent($"{"Name".Bold()}: {entry.Name}\n{"Data Source ID".Bold()}: {entry.DataSourceId}"),
+				new DiscordTextDisplayComponent("-# The notion has been removed from library tracking commands.")
+			], accentColor: DiscordColor.Green)));
+		}
+		catch (DisCatSharpException)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Discord oopsie")], accentColor: DiscordColor.DarkRed)));
+		}
+		catch (Exception ex)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("If you see this, notion probably fucked something up again. Their API is so fucking cursed.")], accentColor: DiscordColor.DarkRed)));
+			var user = await ctx.Client.GetUserAsync(856780995629154305);
+			await user.SendMessageAsync($"Notion probably fucked something up again. Might need to take a look.\n{ex.Message.BlockCode("cs")}\n{ex.StackTrace?.BlockCode("cs") ?? string.Empty}");
+		}
+	}
+
 	[SlashCommand("slap_library", "Slap a library")]
 	public async Task SlapLibraryAsync(InteractionContext ctx, [Autocomplete(typeof(DiscordLibraryListProvider)), Option("library", "The library to slap", true)] string library)
 	{
