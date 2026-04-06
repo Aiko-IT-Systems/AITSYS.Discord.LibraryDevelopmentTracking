@@ -406,17 +406,40 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				return;
 			}
 
-			var options = newDataSources.Select(ds =>
+			// Resolve page_ids by crawling the Notion parent chain (database → block → page)
+			var templatePageId = DiscordBot.Config.NotionConfig.NotionTemplatePageId;
+			var resolvedSources = new List<(Entities.Notion.NotionSearchDataSourceResult.DataSourceResult Ds, string PageId, string PageTitle, string DatabaseId)>();
+			foreach (var ds in newDataSources)
 			{
-				var title = ds.Title?.FirstOrDefault()?.PlainText ?? "Untitled";
-				var pageId = ds.DatabaseParent?.PageId ?? ds.DatabaseParent?.BlockId ?? "unknown";
-				return new DiscordStringSelectComponentOption(title, ds.Id, $"Page: {pageId[..Math.Min(pageId.Length, 36)]}");
-			}).Take(25).ToList();
+				var pageId = await DiscordBot.NotionRestClient.ResolvePageIdForDataSourceAsync(ds);
+				if (string.IsNullOrWhiteSpace(pageId))
+					continue;
+
+				// Filter out the template page data source
+				if (!string.IsNullOrWhiteSpace(templatePageId) && pageId.Equals(templatePageId, StringComparison.InvariantCultureIgnoreCase))
+					continue;
+
+				var pageTitle = await DiscordBot.NotionRestClient.GetPageTitleAsync(pageId) ?? "Untitled";
+				resolvedSources.Add((ds, pageId, pageTitle, ds.Parent?.DatabaseId ?? "unknown"));
+			}
+
+			if (resolvedSources.Count is 0)
+			{
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
+					new DiscordTextDisplayComponent("No New Notions Found".Header2()),
+					new DiscordTextDisplayComponent("All discoverable data sources are already enabled or belong to the template page.\nIf you expected more, ensure the Notion integration has access to the relevant pages.")
+				], accentColor: DiscordColor.Yellow)));
+				return;
+			}
+
+			var options = resolvedSources.Select(rs =>
+				new DiscordStringSelectComponentOption(rs.PageTitle, rs.Ds.Id, $"Page: {rs.PageId[..Math.Min(rs.PageId.Length, 36)]}")
+			).Take(25).ToList();
 
 			var select = new DiscordStringSelectComponent("Select a notion to enable", options, minOptions: 1, maxOptions: 1);
 			var container = new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Discover & Enable Notions".Header2()),
-				new DiscordTextDisplayComponent($"Found {newDataSources.Count} data source{(newDataSources.Count is 1 ? "" : "s")} not yet enabled.\nSelect one to add:"),
+				new DiscordTextDisplayComponent($"Found {resolvedSources.Count} data source{(resolvedSources.Count is 1 ? "" : "s")} not yet enabled.\nSelect one to add:"),
 				new DiscordActionRowComponent([select])
 			], accentColor: DiscordColor.Blue);
 			var msg = await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container));
@@ -433,16 +456,13 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 			await result.Result.Interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
 
 			var selectedDataSourceId = result.Result.Values.First();
-			var selectedDs = newDataSources.First(x => x.Id == selectedDataSourceId);
-			var dsTitle = selectedDs.Title?.FirstOrDefault()?.PlainText ?? "Untitled";
-			var dsDatabaseId = selectedDs.Parent?.DatabaseId ?? "unknown";
-			var dsPageId = selectedDs.DatabaseParent?.PageId ?? selectedDs.DatabaseParent?.BlockId ?? "unknown";
+			var selected = resolvedSources.First(x => x.Ds.Id == selectedDataSourceId);
 
 			var newEntry = new ImplementationTrackingConfig
 			{
-				Name = dsTitle,
-				PageId = dsPageId,
-				DatabaseId = dsDatabaseId,
+				Name = selected.PageTitle,
+				PageId = selected.PageId,
+				DatabaseId = selected.DatabaseId,
 				DataSourceId = selectedDataSourceId
 			};
 
@@ -453,7 +473,7 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 
 			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Notion Enabled Successfully ✅".Header2()),
-				new DiscordTextDisplayComponent($"{"Name".Bold()}: {dsTitle}\n{"Page ID".Bold()}: {dsPageId}\n{"Database ID".Bold()}: {dsDatabaseId}\n{"Data Source ID".Bold()}: {selectedDataSourceId}"),
+				new DiscordTextDisplayComponent($"{"Name".Bold()}: {selected.PageTitle}\n{"Page ID".Bold()}: {selected.PageId}\n{"Database ID".Bold()}: {selected.DatabaseId}\n{"Data Source ID".Bold()}: {selectedDataSourceId}"),
 				new DiscordTextDisplayComponent("-# The notion is now available for library tracking commands.")
 			], accentColor: DiscordColor.Green)));
 		}
