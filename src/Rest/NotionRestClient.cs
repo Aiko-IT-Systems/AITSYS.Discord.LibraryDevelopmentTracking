@@ -919,27 +919,38 @@ public sealed class NotionRestClient
 	/// <summary>
 	/// Finds the Libraries data source ID by searching all data sources
 	/// and matching by schema + resolved page ownership.
+	/// Retries with delay to handle search index lag after duplication.
 	/// </summary>
 	internal async Task<(string? DatabaseId, string? DataSourceId)> FindLibrariesDataSourceAsync(string pageId)
 	{
 		Console.WriteLine($"Finding Libraries data source for page {pageId}");
+		var normalizedPageId = pageId.Replace("-", "");
 
-		var allDataSources = await SearchAllDataSourcesAsync();
-		foreach (var ds in allDataSources)
+		for (var attempt = 0; attempt < 5; attempt++)
 		{
-			var dbId = ds.Parent?.DatabaseId;
-			if (string.IsNullOrWhiteSpace(dbId))
-				continue;
-
-			var resolvedPageId = await ResolvePageIdForDataSourceAsync(ds);
-			if (resolvedPageId?.Replace("-", "").Equals(pageId.Replace("-", ""), StringComparison.OrdinalIgnoreCase) is true)
+			if (attempt > 0)
 			{
-				Console.WriteLine($"Found Libraries data source: DS={ds.Id}, DB={dbId}, Page={resolvedPageId}");
-				return (dbId, ds.Id);
+				Console.WriteLine($"  Retry {attempt}/4 — waiting for search index...");
+				await Task.Delay(3000 * attempt);
+			}
+
+			var allDataSources = await SearchAllDataSourcesAsync();
+			foreach (var ds in allDataSources)
+			{
+				var dbId = ds.Parent?.DatabaseId;
+				if (string.IsNullOrWhiteSpace(dbId))
+					continue;
+
+				var resolvedPageId = await ResolvePageIdForDataSourceAsync(ds);
+				if (resolvedPageId?.Replace("-", "").Equals(normalizedPageId, StringComparison.OrdinalIgnoreCase) is true)
+				{
+					Console.WriteLine($"Found Libraries data source: DS={ds.Id}, DB={dbId}, Page={resolvedPageId}");
+					return (dbId, ds.Id);
+				}
 			}
 		}
 
-		Console.WriteLine("Libraries data source not found");
+		Console.WriteLine("Libraries data source not found after retries");
 		return (null, null);
 	}
 
