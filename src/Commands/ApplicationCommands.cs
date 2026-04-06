@@ -444,7 +444,7 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 	[SlashCommand("slap_library", "Slap a library")]
 	public async Task SlapLibraryAsync(InteractionContext ctx, [Autocomplete(typeof(DiscordLibraryListProvider)), Option("library", "The library to slap", true)] string library)
 	{
-		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
 		try
 		{
 			var libraryRoleId = ulong.Parse(library);
