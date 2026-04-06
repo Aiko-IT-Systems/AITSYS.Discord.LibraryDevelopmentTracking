@@ -663,7 +663,26 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 
 			var (databaseId, dataSourceId) = await DiscordBot.NotionRestClient.FindLibrariesDataSourceAsync(pageId);
 
-			// Step 6: Build result and auto-enable
+			// Step 6: Move page into Phases section
+			var moved = false;
+			if (DiscordBot.NotionRestClient.HasV3Client)
+			{
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
+					new DiscordTextDisplayComponent("Creating Notion...".Header2()),
+					new DiscordTextDisplayComponent($"{(renameSuccess ? "✅" : "⚠️")} Page rename\n{(descriptionUpdated ? "✅" : "⚠️")} Description update\n{(!string.IsNullOrWhiteSpace(dataSourceId) ? "✅" : "⚠️")} Libraries database\n⏳ Moving into Phases section...")
+				], accentColor: DiscordColor.Blue)));
+
+				var phasesBlockId = await DiscordBot.NotionRestClient.FindPhasesToggleBlockAsync(parentPageId);
+				if (!string.IsNullOrWhiteSpace(phasesBlockId))
+				{
+					var lastPhase = await DiscordBot.NotionRestClient.FindLastChildBlockAsync(phasesBlockId);
+					moved = await DiscordBot.NotionRestClient.MoveBlockAsync(pageId, parentPageId, phasesBlockId, lastPhase);
+				}
+				else
+					Console.WriteLine("Phases toggle block not found in DLD page");
+			}
+
+			// Step 7: Build result and auto-enable
 			var publicUrl = renameSuccess ? (renameResult["public_url"]?.ToString() ?? renameResult["url"]?.ToString()) : null;
 			var statusParts = new List<string>
 			{
@@ -676,6 +695,11 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				statusParts.Add("✅ Libraries database found");
 			else
 				statusParts.Add("⚠️ Libraries database not auto-detected (register manually)");
+
+			if (moved)
+				statusParts.Add("✅ Moved into Phases section");
+			else
+				statusParts.Add("⚠️ Could not auto-move into Phases (move manually)");
 
 			if (autoEnable && !string.IsNullOrWhiteSpace(databaseId) && !string.IsNullOrWhiteSpace(dataSourceId))
 			{
@@ -711,8 +735,8 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				responseComponents.Add(new DiscordActionRowComponent([new DiscordLinkButtonComponent(publicUrl, "Open in Notion", emoji: new DiscordComponentEmoji(1414062917137203383))]));
 
 			responseComponents.Add(new DiscordTextDisplayComponent(autoEnable && !string.IsNullOrWhiteSpace(dataSourceId)
-				? "-# The notion is now available for library tracking commands.\n-# ⚠️ Move the page into the Phases section in Notion manually."
-				: "-# Use `/housekeeping enable_notion` to register this notion for tracking.\n-# ⚠️ Move the page into the Phases section in Notion manually."));
+				? $"-# The notion is now available for library tracking commands.{(moved ? "" : "\n-# ⚠️ Move the page into the Phases section in Notion manually.")}"
+				: $"-# Use `/housekeeping enable_notion` to register this notion for tracking.{(moved ? "" : "\n-# ⚠️ Move the page into the Phases section in Notion manually.")}"));
 
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent(responseComponents, accentColor: DiscordColor.Green)));
 		}

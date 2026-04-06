@@ -917,91 +917,151 @@ public sealed class NotionRestClient
 	}
 
 	/// <summary>
-	/// Finds the Libraries data source ID by crawling the page's block tree
-	/// to find child_database blocks, then matching by schema columns.
+	/// Finds the Libraries data source ID by searching all data sources
+	/// and matching by schema + resolved page ownership.
 	/// </summary>
 	internal async Task<(string? DatabaseId, string? DataSourceId)> FindLibrariesDataSourceAsync(string pageId)
 	{
 		Console.WriteLine($"Finding Libraries data source for page {pageId}");
 
-		// Recursively collect all child_database block IDs from the page tree
-		var databaseIds = new List<string>();
-		await CollectChildDatabasesAsync(pageId, databaseIds, maxDepth: 4);
-
-		Console.WriteLine($"Found {databaseIds.Count} child databases");
-
-		// For each database, check if it has the tracking schema (Library title column + Status)
-		foreach (var dbId in databaseIds)
+		var allDataSources = await SearchAllDataSourcesAsync();
+		foreach (var ds in allDataSources)
 		{
-			try
+			var dbId = ds.Parent?.DatabaseId;
+			if (string.IsNullOrWhiteSpace(dbId))
+				continue;
+
+			var resolvedPageId = await ResolvePageIdForDataSourceAsync(ds);
+			if (resolvedPageId?.Replace("-", "").Equals(pageId.Replace("-", ""), StringComparison.OrdinalIgnoreCase) is true)
 			{
-				var dbResult = await this.HTTP_CLIENT.GetAsync($"https://api.notion.com/v1/databases/{dbId}");
-				if (!dbResult.IsSuccessStatusCode)
-					continue;
-
-				var dbJson = JObject.Parse(await dbResult.Content.ReadAsStringAsync());
-				var title = dbJson["title"]?[0]?["text"]?["content"]?.ToString();
-				var properties = dbJson["properties"] as JObject;
-
-				// Verify this is the Libraries database by checking for key columns
-				if (properties is not null &&
-					(title?.Contains("Libraries", StringComparison.OrdinalIgnoreCase) is true ||
-					 (properties.ContainsKey("Library") && properties.ContainsKey("Status"))))
-				{
-					// Get the data source ID for this database
-					var dataSources = dbJson["data_sources"] as JArray;
-					var dsId = dataSources?[0]?["id"]?.ToString();
-
-					if (!string.IsNullOrWhiteSpace(dsId))
-					{
-						Console.WriteLine($"Found Libraries database: DB={dbId}, DS={dsId}, Title={title}");
-						return (dbId, dsId);
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine($"Error checking database {dbId}: {ex.Message}");
+				Console.WriteLine($"Found Libraries data source: DS={ds.Id}, DB={dbId}, Page={resolvedPageId}");
+				return (dbId, ds.Id);
 			}
 		}
 
-		Console.WriteLine("Libraries data source not found via block tree crawl");
+		Console.WriteLine("Libraries data source not found");
 		return (null, null);
 	}
 
 	/// <summary>
-	/// Recursively collects child_database block IDs from a page/block's children.
+	/// Moves a block from one parent to another using the v3 internal API.
+	/// Optionally places it after a specific sibling block.
 	/// </summary>
-	private async Task CollectChildDatabasesAsync(string blockId, List<string> databaseIds, int maxDepth, int currentDepth = 0)
+	internal async Task<bool> MoveBlockAsync(string blockId, string fromParentId, string toParentId, string? afterBlockId = null)
 	{
-		if (currentDepth >= maxDepth) return;
+		if (this.V3_HTTP_CLIENT is null)
+			throw new InvalidOperationException("V3 API client not configured.");
 
-		try
+		var spaceId = this.CONFIG.NotionSpaceId!;
+		Console.WriteLine($"Moving block {blockId} from {fromParentId} to {toParentId}");
+
+		var operations = new JArray
 		{
-			var children = await this.HTTP_CLIENT.GetAsync($"https://api.notion.com/v1/blocks/{blockId}/children?page_size=100");
-			if (!children.IsSuccessStatusCode) return;
-
-			var childrenJson = JObject.Parse(await children.Content.ReadAsStringAsync());
-			var blocks = childrenJson["results"] as JArray ?? [];
-
-			foreach (var block in blocks)
+			// Remove from old parent
+			new JObject
 			{
-				var type = block["type"]?.ToString();
-				var id = block["id"]?.ToString();
-				if (string.IsNullOrWhiteSpace(id)) continue;
+				["pointer"] = new JObject { ["table"] = "block", ["id"] = fromParentId, ["spaceId"] = spaceId },
+				["path"] = new JArray { "content" },
+				["command"] = "listRemove",
+				["args"] = new JObject { ["id"] = blockId }
+			},
+			// Update block's parent
+			new JObject
+			{
+				["pointer"] = new JObject { ["table"] = "block", ["id"] = blockId, ["spaceId"] = spaceId },
+				["path"] = new JArray(),
+				["command"] = "update",
+				["args"] = new JObject { ["parent_id"] = toParentId, ["parent_table"] = "block" }
+			}
+		};
 
-				if (type is "child_database")
-					databaseIds.Add(id);
+		// Add to new parent (after specific sibling or at end)
+		var listAddArgs = new JObject { ["id"] = blockId };
+		if (!string.IsNullOrWhiteSpace(afterBlockId))
+			listAddArgs["after"] = afterBlockId;
 
-				// Recurse into blocks that may contain nested databases
-				if (block["has_children"]?.Value<bool>() is true)
-					await CollectChildDatabasesAsync(id, databaseIds, maxDepth, currentDepth + 1);
+		operations.Add(new JObject
+		{
+			["pointer"] = new JObject { ["table"] = "block", ["id"] = toParentId, ["spaceId"] = spaceId },
+			["path"] = new JArray { "content" },
+			["command"] = "listAfter",
+			["args"] = listAddArgs
+		});
+
+		var txPayload = new JObject
+		{
+			["requestId"] = Guid.NewGuid().ToString(),
+			["transactions"] = new JArray
+			{
+				new JObject
+				{
+					["id"] = Guid.NewGuid().ToString(),
+					["spaceId"] = spaceId,
+					["operations"] = operations
+				}
+			}
+		};
+
+		var result = await this.V3_HTTP_CLIENT.PostAsync("https://www.notion.so/api/v3/submitTransaction",
+			new StringContent(txPayload.ToString(), Encoding.UTF8, "application/json"));
+
+		if (result.IsSuccessStatusCode)
+		{
+			Console.WriteLine("Block moved successfully");
+			return true;
+		}
+
+		Console.WriteLine($"Failed to move block: {result.StatusCode} {await result.Content.ReadAsStringAsync()}");
+		return false;
+	}
+
+	/// <summary>
+	/// Finds the last child block ID of a parent (for placing new blocks at the end).
+	/// </summary>
+	internal async Task<string?> FindLastChildBlockAsync(string parentBlockId)
+	{
+		var children = await this.HTTP_CLIENT.GetAsync($"https://api.notion.com/v1/blocks/{parentBlockId}/children?page_size=100");
+		if (!children.IsSuccessStatusCode) return null;
+
+		var childrenJson = JObject.Parse(await children.Content.ReadAsStringAsync());
+		var blocks = childrenJson["results"] as JArray ?? [];
+		return blocks.LastOrDefault()?["id"]?.ToString();
+	}
+
+	/// <summary>
+	/// Finds the "Implementation Tracking" toggle heading block in the DLD page.
+	/// This is where phase pages should be placed.
+	/// </summary>
+	internal async Task<string?> FindPhasesToggleBlockAsync(string pageId)
+	{
+		Console.WriteLine($"Looking for Implementation Tracking toggle block in {pageId}");
+		var children = await this.HTTP_CLIENT.GetAsync($"https://api.notion.com/v1/blocks/{pageId}/children?page_size=100");
+		if (!children.IsSuccessStatusCode) return null;
+
+		var childrenJson = JObject.Parse(await children.Content.ReadAsStringAsync());
+		var blocks = childrenJson["results"] as JArray ?? [];
+
+		foreach (var block in blocks)
+		{
+			var type = block["type"]?.ToString();
+			if (type is "heading_1" or "heading_2" or "heading_3")
+			{
+				var heading = block[type];
+				var isToggleable = heading?["is_toggleable"]?.Value<bool>() is true;
+				var richText = heading?["rich_text"] as JArray;
+				var text = richText?.FirstOrDefault()?["plain_text"]?.ToString();
+
+				if (isToggleable && text?.Contains("Implementation Tracking", StringComparison.OrdinalIgnoreCase) is true)
+				{
+					var id = block["id"]?.ToString();
+					Console.WriteLine($"Found Implementation Tracking toggle: '{text}' id={id}");
+					return id;
+				}
 			}
 		}
-		catch (Exception ex)
-		{
-			Console.WriteLine($"Error crawling children of {blockId}: {ex.Message}");
-		}
+
+		Console.WriteLine("Implementation Tracking toggle block not found");
+		return null;
 	}
 
 	#endregion
