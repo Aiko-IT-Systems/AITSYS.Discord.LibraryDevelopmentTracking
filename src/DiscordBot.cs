@@ -46,14 +46,30 @@ public sealed class DiscordBot
 			Token = Config.DiscordConfig.DiscordToken,
 			TokenType = TokenType.Bot,
 			Intents = DiscordIntents.AllUnprivileged | DiscordIntents.GuildMembers | DiscordIntents.MessageContent,
-			ApiChannel = ApiChannel.Canary,
-			MinimumLogLevel = LogLevel.Debug,
-			AutoReconnect = true,
-			ReconnectIndefinitely = true,
-			ReportMissingFields = false,
-			EnableSentry = false,
-			DisableUpdateCheck = true,
-			Proxy = proxy
+			Api =
+			{
+				Channel = ApiChannel.Canary
+			},
+			Diagnostics =
+			{
+				UpdateChecks = new()
+				{
+					Disabled = true
+				}
+			},
+			Gateway =
+			{
+				AutoReconnect = true,
+				ReconnectIndefinitely = true
+			},
+			Logging =
+			{
+				MinimumLogLevel = LogLevel.Debug
+			},
+			Telemetry =
+			{
+				EnableSentry = false
+			}
 		});
 		this.ApplicationCommandsExtension = this.DiscordClient.UseApplicationCommands(new()
 		{

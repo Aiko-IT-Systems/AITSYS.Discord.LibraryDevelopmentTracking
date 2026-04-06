@@ -9,6 +9,7 @@ using System.Text;
 using AITSYS.Discord.LibraryDevelopmentTracking.Entities.Notion;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace AITSYS.Discord.LibraryDevelopmentTracking.Rest;
 
@@ -53,18 +54,88 @@ public sealed class NotionRestClient
 		var targetDataSource = this.CONFIG.ImplementationTrackingConfig.FirstOrDefault(x => x.PageId.Equals(notion, StringComparison.InvariantCultureIgnoreCase))?.DataSourceId;
 		if (string.IsNullOrWhiteSpace(targetDataSource))
 			throw new ArgumentException("The provided notion page ID does not have a corresponding data source ID in the configuration.", nameof(notion));
-		var payload = $@"{{
-			""query"": ""Libraries"",
-			""filter"": {{
+		var allDataSources = await SearchAllDataSourcesAsync();
+		Console.WriteLine("Notion searched");
+		return allDataSources.FirstOrDefault(x => x.Id.Equals(targetDataSource, StringComparison.InvariantCultureIgnoreCase));
+	}
+
+	private static readonly HashSet<string> s_trackingSchemaColumns = ["Library", "Status", "Pull Request / Commit", "Modified By"];
+
+	internal async Task<List<NotionSearchDataSourceResult.DataSourceResult>> SearchAllDataSourcesAsync()
+	{
+		Console.WriteLine("Searching Notion for all data sources");
+		var payload = @"{
+			""filter"": {
 				""value"": ""data_source"",
 				""property"": ""object""
-			}}
-		}}";
+			}
+		}";
 		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/search", new StringContent(payload, Encoding.UTF8, "application/json"));
 		var content = await result.Content.ReadAsStringAsync();
 		var res = JsonConvert.DeserializeObject<NotionSearchDataSourceResult>(content);
-		Console.WriteLine("Notion searched");
-		return res?.Results?.FirstOrDefault(x => x.Id.Equals(targetDataSource, StringComparison.InvariantCultureIgnoreCase));
+		var all = res?.Results ?? [];
+
+		// Filter by schema: must have the required tracking table columns
+		var tracking = all.Where(ds =>
+		{
+			if (ds.Properties is null)
+				return false;
+
+			var propNames = JObject.FromObject(ds.Properties).Properties().Select(p => p.Name).ToHashSet();
+			return s_trackingSchemaColumns.IsSubsetOf(propNames);
+		}).ToList();
+
+		Console.WriteLine($"Found {all.Count} data sources, {tracking.Count} match tracking schema");
+		return tracking;
+	}
+
+	/// <summary>
+	/// Resolves the page_id for a data source by crawling: database → parent block → parent page.
+	/// Returns null if the chain cannot be resolved.
+	/// </summary>
+	internal async Task<string?> ResolvePageIdForDataSourceAsync(NotionSearchDataSourceResult.DataSourceResult dataSource)
+	{
+		var databaseId = dataSource.Parent?.DatabaseId;
+		if (string.IsNullOrWhiteSpace(databaseId))
+			return null;
+
+		Console.WriteLine($"Resolving page_id for data source {dataSource.Id} via database {databaseId}");
+
+		// Step 1: GET database → parent.block_id
+		var dbResult = await this.HTTP_CLIENT.GetAsync($"https://api.notion.com/v1/databases/{databaseId}");
+		var dbJson = JObject.Parse(await dbResult.Content.ReadAsStringAsync());
+		var dbParentType = dbJson["parent"]?["type"]?.ToString();
+		if (dbParentType is not "block_id")
+		{
+			// Database parent is directly a page (unlikely but possible)
+			if (dbParentType is "page_id")
+				return dbJson["parent"]?["page_id"]?.ToString();
+			return null;
+		}
+
+		var blockId = dbJson["parent"]?["block_id"]?.ToString();
+		if (string.IsNullOrWhiteSpace(blockId))
+			return null;
+
+		// Step 2: GET block → parent.page_id
+		var blockResult = await this.HTTP_CLIENT.GetAsync($"https://api.notion.com/v1/blocks/{blockId}");
+		var blockJson = JObject.Parse(await blockResult.Content.ReadAsStringAsync());
+		var blockParentType = blockJson["parent"]?["type"]?.ToString();
+		if (blockParentType is "page_id")
+			return blockJson["parent"]?["page_id"]?.ToString();
+
+		// Could be deeper nesting — return null for now
+		Console.WriteLine($"Could not resolve page_id: block parent type is '{blockParentType}'");
+		return null;
+	}
+
+	/// <summary>
+	/// Gets the page title from a Notion page.
+	/// </summary>
+	internal async Task<string?> GetPageTitleAsync(string pageId)
+	{
+		var page = await GetPageAsync(pageId);
+		return page?.PageProperties?.Title?.Titles?.FirstOrDefault()?.Text?.Content?.Trim();
 	}
 
 	internal async Task<NotionDataSourceQueryResult?> QueryDataSourceAsync(string dataSourceId, string libraryName)

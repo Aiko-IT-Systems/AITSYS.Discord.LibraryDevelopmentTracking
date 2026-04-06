@@ -240,13 +240,75 @@ public class LibraryTracking : ApplicationCommandsModule
 		try
 		{
 			await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, ephemeral ? new DiscordInteractionResponseBuilder().AsEphemeral() : null);
-			var libraryName = DiscordBot.Config.DiscordConfig.LibraryRoleMapping[ulong.Parse(library)];
-			if (libraryName is null)
+
+			if (!ulong.TryParse(library, out var libraryRoleId) || !DiscordBot.Config.DiscordConfig.LibraryRoleMapping.TryGetValue(libraryRoleId, out var libraryName) || libraryName is null)
 			{
-				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("The selected library is not valid. Please contact a server administrator.")])));
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("The selected library is not valid. Please contact a server administrator.")], accentColor: DiscordColor.DarkRed)));
 				return;
 			}
-			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"You selected {libraryName} for meow")])));
+
+			var notions = DiscordBot.Config.NotionConfig.ImplementationTrackingConfig;
+			List<DiscordComponent> components = [new DiscordTextDisplayComponent($"Status for {libraryName.Bold()}".Header2())];
+
+			foreach (var notion in notions)
+			{
+				try
+				{
+					var dataSource = await DiscordBot.NotionRestClient.GetDataSourceBySearchAsync(notion.PageId);
+					if (dataSource is null)
+					{
+						components.Add(new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large));
+						components.Add(new DiscordTextDisplayComponent($"{notion.Name.Header3()}\n-# Data source not available"));
+						continue;
+					}
+
+					var queryResult = await DiscordBot.NotionRestClient.QueryDataSourceAsync(dataSource.Id, libraryName);
+					if (queryResult?.Results is null || queryResult.Results.Count is 0)
+					{
+						components.Add(new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large));
+						components.Add(new DiscordTextDisplayComponent($"{notion.Name.Header3()}\n-# Not tracked in this notion"));
+						continue;
+					}
+
+					var result = queryResult.Results[0];
+					var status = result.Properties.Status.InnerStatus.Name;
+					var prCommitUrl = result.Properties.PullRequestCommit.Url;
+					var version = result.Properties.ReleasedInVersion.RichText.Count is not 0
+						? string.Join("", result.Properties.ReleasedInVersion.RichText.SelectMany(x => x.Text.Content))
+						: null;
+					var notes = result.Properties.Notes.RichText.Count is not 0
+						? string.Join("", result.Properties.Notes.RichText.SelectMany(x => x.Text.Content))
+						: null;
+					var lastModifiedBy = result.Properties.ModifiedBy.RichText.Count is not 0
+						? Convert.ToUInt64(string.Join("", result.Properties.ModifiedBy.RichText.SelectMany(x => x.Text.Content)))
+						: Convert.ToUInt64(856780995629154305);
+					var lastModifiedByUser = await ctx.Client.GetUserAsync(lastModifiedBy);
+					var lastEditedTimestamp = result.LastEditedTime.HasValue
+						? result.LastEditedTime!.Value.Timestamp()
+						: result.CreatedTime.HasValue
+							? result.CreatedTime!.Value.Timestamp()
+							: "Unknown";
+
+					var statusLine = $"{"Status:".Bold()} {status}";
+					var versionLine = version is not null ? $"\n{"Version:".Bold()} {version}" : "";
+					var notesLine = notes is not null ? $"\n{"Notes:".Bold()} {notes}" : "";
+					var modifiedLine = $"\n-# Last edited by: {lastModifiedByUser.Mention()} · {lastEditedTimestamp}";
+
+					components.Add(new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large));
+					components.Add(new DiscordTextDisplayComponent($"{notion.Name.Header3()}\n{statusLine}{versionLine}{notesLine}{modifiedLine}"));
+
+					if (!string.IsNullOrWhiteSpace(prCommitUrl))
+						components.Add(new DiscordActionRowComponent([new DiscordLinkButtonComponent(prCommitUrl, "PR / Commit")]));
+				}
+				catch
+				{
+					components.Add(new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large));
+					components.Add(new DiscordTextDisplayComponent($"{notion.Name.Header3()}\n-# Failed to fetch data for this notion"));
+				}
+			}
+
+			var container = new DiscordContainerComponent([.. components], accentColor: new DiscordColor("#8692FE"));
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container));
 		}
 		catch (DisCatSharpException)
 		{
@@ -326,18 +388,202 @@ public class LibraryTracking : ApplicationCommandsModule
 public class LibraryHouseKeeping : ApplicationCommandsModule
 {
 	[SlashCommand("enable_notion", "Enable a notion to be selected by library maintainers")]
-	public async Task EnableNotionAsync(InteractionContext ctx, [Option("name", "The name of the notion")] string name)
+	public async Task EnableNotionAsync(InteractionContext ctx)
 	{
-		// Implementation for enabling a notion
-		var notionName = $"{name.Trim()} - Implementation Statuses";
-		await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithContent($"DUMMY: You have enabled a new notion: {notionName}\n-# This is not implemented yet!"));
+		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+		try
+		{
+			var allDataSources = await DiscordBot.NotionRestClient.SearchAllDataSourcesAsync();
+			var existingDataSourceIds = DiscordBot.Config.NotionConfig.ImplementationTrackingConfig.Select(x => x.DataSourceId).ToHashSet(StringComparer.InvariantCultureIgnoreCase);
+			var newDataSources = allDataSources.Where(x => !existingDataSourceIds.Contains(x.Id)).ToList();
+
+			if (newDataSources.Count is 0)
+			{
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
+					new DiscordTextDisplayComponent("No New Notions Found".Header2()),
+					new DiscordTextDisplayComponent($"All {allDataSources.Count} discovered data sources are already enabled.\nIf you expected more, ensure the Notion integration has access to the relevant pages.")
+				], accentColor: DiscordColor.Yellow)));
+				return;
+			}
+
+			// Resolve page_ids by crawling the Notion parent chain (database → block → page)
+			var templatePageId = DiscordBot.Config.NotionConfig.NotionTemplatePageId;
+			var resolvedSources = new List<(Entities.Notion.NotionSearchDataSourceResult.DataSourceResult Ds, string PageId, string PageTitle, string DatabaseId)>();
+			foreach (var ds in newDataSources)
+			{
+				var pageId = await DiscordBot.NotionRestClient.ResolvePageIdForDataSourceAsync(ds);
+				if (string.IsNullOrWhiteSpace(pageId))
+					continue;
+
+				// Filter out the template page data source
+				if (!string.IsNullOrWhiteSpace(templatePageId) && pageId.Equals(templatePageId, StringComparison.InvariantCultureIgnoreCase))
+					continue;
+
+				var pageTitle = await DiscordBot.NotionRestClient.GetPageTitleAsync(pageId) ?? "Untitled";
+				resolvedSources.Add((ds, pageId, pageTitle, ds.Parent?.DatabaseId ?? "unknown"));
+			}
+
+			if (resolvedSources.Count is 0)
+			{
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
+					new DiscordTextDisplayComponent("No New Notions Found".Header2()),
+					new DiscordTextDisplayComponent("All discoverable data sources are already enabled or belong to the template page.\nIf you expected more, ensure the Notion integration has access to the relevant pages.")
+				], accentColor: DiscordColor.Yellow)));
+				return;
+			}
+
+			var options = resolvedSources.Select(rs =>
+				new DiscordStringSelectComponentOption(rs.PageTitle, rs.Ds.Id, $"Page: {rs.PageId[..Math.Min(rs.PageId.Length, 36)]}")
+			).Take(25).ToList();
+
+			var select = new DiscordStringSelectComponent("Select a notion to enable", options, minOptions: 1, maxOptions: 1);
+			var container = new DiscordContainerComponent([
+				new DiscordTextDisplayComponent("Discover & Enable Notions".Header2()),
+				new DiscordTextDisplayComponent($"Found {resolvedSources.Count} data source{(resolvedSources.Count is 1 ? "" : "s")} not yet enabled.\nSelect one to add:"),
+				new DiscordActionRowComponent([select])
+			], accentColor: DiscordColor.Blue);
+			var msg = await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container));
+
+			var interactivity = ctx.Client.GetInteractivity();
+			var result = await interactivity.WaitForSelectAsync(msg, x => x.User.Id == ctx.UserId && x.Id == select.CustomId, ComponentType.StringSelect);
+
+			if (result.TimedOut)
+			{
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("You took too long to respond. Please try again.")], accentColor: DiscordColor.Red)));
+				return;
+			}
+
+			await result.Result.Interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+
+			var selectedDataSourceId = result.Result.Values.First();
+			var selected = resolvedSources.First(x => x.Ds.Id == selectedDataSourceId);
+
+			var newEntry = new ImplementationTrackingConfig
+			{
+				Name = selected.PageTitle,
+				PageId = selected.PageId,
+				DatabaseId = selected.DatabaseId,
+				DataSourceId = selectedDataSourceId
+			};
+
+			DiscordBot.Config.NotionConfig.ImplementationTrackingConfig.Add(newEntry);
+
+			var configJson = Newtonsoft.Json.JsonConvert.SerializeObject(DiscordBot.Config, Newtonsoft.Json.Formatting.Indented);
+			await File.WriteAllTextAsync("config.json", configJson);
+
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
+				new DiscordTextDisplayComponent("Notion Enabled Successfully ✅".Header2()),
+				new DiscordTextDisplayComponent($"{"Name".Bold()}: {selected.PageTitle}\n{"Page ID".Bold()}: {selected.PageId}\n{"Database ID".Bold()}: {selected.DatabaseId}\n{"Data Source ID".Bold()}: {selectedDataSourceId}"),
+				new DiscordTextDisplayComponent("-# The notion is now available for library tracking commands.")
+			], accentColor: DiscordColor.Green)));
+		}
+		catch (DisCatSharpException)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Discord oopsie")], accentColor: DiscordColor.DarkRed)));
+		}
+		catch (Exception ex)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("If you see this, notion probably fucked something up again. Their API is so fucking cursed.")], accentColor: DiscordColor.DarkRed)));
+			var user = await ctx.Client.GetUserAsync(856780995629154305);
+			await user.SendMessageAsync($"Notion probably fucked something up again. Might need to take a look.\n{ex.Message.BlockCode("cs")}\n{ex.StackTrace?.BlockCode("cs") ?? string.Empty}");
+		}
 	}
 
 	[SlashCommand("slap_library", "Slap a library")]
 	public async Task SlapLibraryAsync(InteractionContext ctx, [Autocomplete(typeof(DiscordLibraryListProvider)), Option("library", "The library to slap", true)] string library)
 	{
-		// Implementation for slapping a library
-		await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithContent($"DUMMY: You slapped the library: {library}\n-# This is not implemented yet!"));
+		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+		try
+		{
+			if (!ulong.TryParse(library, out var libraryRoleId) || !DiscordBot.Config.DiscordConfig.LibraryRoleMapping.TryGetValue(libraryRoleId, out var libraryName) || libraryName is null)
+			{
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("The selected library is not valid. Please contact a server administrator.")], accentColor: DiscordColor.DarkRed)));
+				return;
+			}
+
+			List<(string NotionTitle, string Status, string? PrUrl, string? Version, string? Notes)> pendingEntries = [];
+
+			foreach (var notion in DiscordBot.Config.NotionConfig.ImplementationTrackingConfig)
+			{
+				try
+				{
+					var page = await DiscordBot.NotionRestClient.GetPageAsync(notion.PageId);
+					var pageTitle = page?.PageProperties?.Title?.Titles?.FirstOrDefault()?.Text?.Content?.Trim() ?? notion.Name;
+
+					var dataSource = await DiscordBot.NotionRestClient.GetDataSourceBySearchAsync(notion.PageId);
+					if (dataSource is null)
+						continue;
+
+					var queryResult = await DiscordBot.NotionRestClient.QueryDataSourceAsync(dataSource.Id, libraryName);
+					if (queryResult?.Results is null || queryResult.Results.Count is 0)
+						continue;
+
+					var status = queryResult.Results[0].Properties.Status.InnerStatus.Name;
+					if (status is "Released")
+						continue;
+
+					var prUrl = queryResult.Results[0].Properties.PullRequestCommit.Url;
+					var version = queryResult.Results[0].Properties.ReleasedInVersion.RichText.Count is not 0
+						? string.Join("", queryResult.Results[0].Properties.ReleasedInVersion.RichText.SelectMany(x => x.Text.Content))
+						: null;
+					var notes = queryResult.Results[0].Properties.Notes.RichText.Count is not 0
+						? string.Join("", queryResult.Results[0].Properties.Notes.RichText.SelectMany(x => x.Text.Content))
+						: null;
+
+					pendingEntries.Add((pageTitle, status, prUrl, version, notes));
+				}
+				catch (Exception ex)
+				{
+					Console.WriteLine($"Skipping notion '{notion.Name}' due to error: {ex.Message}");
+				}
+			}
+
+			if (pendingEntries.Count is 0)
+			{
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
+					new DiscordTextDisplayComponent("All Caught Up! 🎉".Header2()),
+					new DiscordTextDisplayComponent($"<@&{libraryRoleId}> is fully up to date across all tracked notions.\nNothing to slap here — great work!")
+				], accentColor: DiscordColor.Green)));
+				return;
+			}
+
+			List<DiscordComponent> components =
+			[
+				new DiscordTextDisplayComponent($"Hey <@&{libraryRoleId}>! Here's what still needs work 👀".Header2()),
+				new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large)
+			];
+
+			foreach (var entry in pendingEntries)
+			{
+				var detail = $"{"Status".Bold()}: {entry.Status}";
+				if (!string.IsNullOrWhiteSpace(entry.Notes))
+					detail += $"\n{"Notes".Bold()}: {entry.Notes}";
+				if (!string.IsNullOrWhiteSpace(entry.Version))
+					detail += $"\n{"Version".Bold()}: {entry.Version}";
+
+				components.Add(new DiscordTextDisplayComponent($"{entry.NotionTitle.Header3()}\n{detail}"));
+
+				if (!string.IsNullOrWhiteSpace(entry.PrUrl))
+					components.Add(new DiscordActionRowComponent([new DiscordLinkButtonComponent(entry.PrUrl, "View PR / Commit")]));
+
+				components.Add(new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large));
+			}
+
+			components.Add(new DiscordTextDisplayComponent($"-# {pendingEntries.Count} pending implementation{(pendingEntries.Count is 1 ? "" : "s")} found. Get on it!"));
+
+			var container = new DiscordContainerComponent(components, accentColor: DiscordColor.Orange);
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container).WithAllowedMentions(Mentions.All));
+		}
+		catch (DisCatSharpException)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Discord oopsie")], accentColor: DiscordColor.DarkRed)));
+		}
+		catch (Exception ex)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("If you see this, notion probably fucked something up again. Their API is so fucking cursed.")], accentColor: DiscordColor.DarkRed)));
+			var user = await ctx.Client.GetUserAsync(856780995629154305);
+			await user.SendMessageAsync($"Notion probably fucked something up again. Might need to take a look.\n{ex.Message.BlockCode("cs")}\n{ex.StackTrace?.BlockCode("cs") ?? string.Empty}");
+		}
 	}
 
 	[SlashCommand("invite_user", "Invite a specific user")]
