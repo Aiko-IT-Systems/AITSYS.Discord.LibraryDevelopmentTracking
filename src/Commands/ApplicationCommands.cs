@@ -628,59 +628,35 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 			], accentColor: DiscordColor.Blue)));
 
 			var blocks = NotionRestClient.BuildTrackingPageBlocks(description);
-			var appendResult = await DiscordBot.NotionRestClient.AppendBlockChildrenAsync(pageId, blocks);
-			var appendedBlocks = appendResult["results"] as JArray;
+			await DiscordBot.NotionRestClient.AppendBlockChildrenAsync(pageId, blocks);
 
-			// Find the IDs of the blocks we need for database creation
-			string? explanationHeadingId = null;
-			string? syncedBlockId = null;
-
-			if (appendedBlocks is not null)
-			{
-				foreach (var block in appendedBlocks)
-				{
-					var blockType = block["type"]?.ToString();
-					if (blockType is "heading_2")
-					{
-						var text = block["heading_2"]?["rich_text"]?[0]?["text"]?["content"]?.ToString();
-						if (text is "Explanation")
-							explanationHeadingId = block["id"]?.ToString();
-					}
-					else if (blockType is "synced_block")
-					{
-						syncedBlockId = block["id"]?.ToString();
-					}
-				}
-			}
-
-			if (string.IsNullOrWhiteSpace(explanationHeadingId) || string.IsNullOrWhiteSpace(syncedBlockId))
-			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Page created but failed to find block IDs for database creation.\nPage ID: {pageId}\nPlease set up databases manually.")], accentColor: DiscordColor.Yellow)));
-				return;
-			}
-
-			// Step 3: Create Status Meaning database under Explanation heading
+			// Step 3: Create Status Meaning database under page
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
 				new DiscordTextDisplayComponent("✅ Page created\n✅ Structure added\n⏳ Creating Status Meaning database...")
 			], accentColor: DiscordColor.Blue)));
 
 			var statusMeaningSchema = NotionRestClient.BuildStatusMeaningDatabaseSchema();
-			await DiscordBot.NotionRestClient.CreateDatabaseAsync(explanationHeadingId, false, "Status Meaning", statusMeaningSchema);
+			var statusMeaningDb = await DiscordBot.NotionRestClient.CreateDatabaseAsync(pageId, "Status Meaning", statusMeaningSchema);
+			if (statusMeaningDb["object"]?.ToString() is "error")
+			{
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create Status Meaning database.\n{statusMeaningDb["message"]?.ToString().BlockCode("json") ?? "Unknown error"}")], accentColor: DiscordColor.DarkRed)));
+				return;
+			}
 
-			// Step 4: Create Libraries database under synced_block
+			// Step 4: Create Libraries database under page
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
 				new DiscordTextDisplayComponent("✅ Page created\n✅ Structure added\n✅ Status Meaning database\n⏳ Creating Libraries database...")
 			], accentColor: DiscordColor.Blue)));
 
 			var librariesSchema = NotionRestClient.BuildLibrariesDatabaseSchema();
-			var librariesDb = await DiscordBot.NotionRestClient.CreateDatabaseAsync(syncedBlockId, false, "Libraries", librariesSchema);
+			var librariesDb = await DiscordBot.NotionRestClient.CreateDatabaseAsync(pageId, "Libraries", librariesSchema);
 			var databaseId = librariesDb["id"]?.ToString();
 
-			if (string.IsNullOrWhiteSpace(databaseId))
+			if (string.IsNullOrWhiteSpace(databaseId) || librariesDb["object"]?.ToString() is "error")
 			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create Libraries database.\nPage ID: {pageId}\nPlease set up the database manually.")], accentColor: DiscordColor.Yellow)));
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create Libraries database.\n{librariesDb["message"]?.ToString().BlockCode("json") ?? "Unknown error"}")], accentColor: DiscordColor.DarkRed)));
 				return;
 			}
 
@@ -783,8 +759,8 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				responseComponents.Add(new DiscordActionRowComponent([new DiscordLinkButtonComponent(publicUrl, "Open in Notion", emoji: new DiscordComponentEmoji(1414062917137203383))]));
 
 			responseComponents.Add(new DiscordTextDisplayComponent(autoEnable && !string.IsNullOrWhiteSpace(dataSourceId)
-				? "-# The notion is now available for library tracking commands."
-				: "-# Use `/housekeeping enable_notion` to register this notion for tracking."));
+				? "-# The notion is now available for library tracking commands.\n-# ⚠️ Move the page into the Phases section in Notion manually."
+				: "-# Use `/housekeeping enable_notion` to register this notion for tracking.\n-# ⚠️ Move the page into the Phases section in Notion manually."));
 
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent(responseComponents, accentColor: DiscordColor.Green)));
 		}

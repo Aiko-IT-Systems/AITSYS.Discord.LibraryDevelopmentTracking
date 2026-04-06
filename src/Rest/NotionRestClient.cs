@@ -259,7 +259,7 @@ public sealed class NotionRestClient
 		Console.WriteLine($"Creating Notion page '{title}' under parent {parentPageId}");
 		var payload = new JObject
 		{
-			["parent"] = new JObject { ["page_id"] = parentPageId },
+			["parent"] = new JObject { ["type"] = "page_id", ["page_id"] = parentPageId },
 			["icon"] = new JObject
 			{
 				["type"] = "icon",
@@ -279,6 +279,8 @@ public sealed class NotionRestClient
 		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/pages", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
 		var content = await result.Content.ReadAsStringAsync();
 		Console.WriteLine($"Page created: {result.StatusCode}");
+		if (!result.IsSuccessStatusCode)
+			Console.WriteLine($"Page creation error: {content}");
 		return JObject.Parse(content);
 	}
 
@@ -297,18 +299,16 @@ public sealed class NotionRestClient
 	}
 
 	/// <summary>
-	/// Creates a new database under the given parent (page or block).
+	/// Creates a new inline database under the given parent page.
+	/// Note: Notion API only supports page_id parent for database creation.
 	/// Returns the created database as a JObject.
 	/// </summary>
-	internal async Task<JObject> CreateDatabaseAsync(string parentId, bool isPageParent, string title, JObject properties)
+	internal async Task<JObject> CreateDatabaseAsync(string parentPageId, string title, JObject properties)
 	{
-		Console.WriteLine($"Creating database '{title}' under {(isPageParent ? "page" : "block")} {parentId}");
-		var parent = isPageParent
-			? new JObject { ["page_id"] = parentId }
-			: new JObject { ["block_id"] = parentId };
+		Console.WriteLine($"Creating database '{title}' under page {parentPageId}");
 		var payload = new JObject
 		{
-			["parent"] = parent,
+			["parent"] = new JObject { ["type"] = "page_id", ["page_id"] = parentPageId },
 			["title"] = new JArray
 			{
 				new JObject
@@ -323,6 +323,8 @@ public sealed class NotionRestClient
 		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/databases", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
 		var content = await result.Content.ReadAsStringAsync();
 		Console.WriteLine($"Database created: {result.StatusCode}");
+		if (!result.IsSuccessStatusCode)
+			Console.WriteLine($"Database creation error: {content}");
 		return JObject.Parse(content);
 	}
 
@@ -334,12 +336,14 @@ public sealed class NotionRestClient
 		Console.WriteLine($"Creating row in data source {dataSourceId}");
 		var payload = new JObject
 		{
-			["parent"] = new JObject { ["data_source_id"] = dataSourceId },
+			["parent"] = new JObject { ["type"] = "data_source_id", ["data_source_id"] = dataSourceId },
 			["properties"] = properties
 		};
 		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/pages", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
 		var content = await result.Content.ReadAsStringAsync();
 		Console.WriteLine($"Row created: {result.StatusCode}");
+		if (!result.IsSuccessStatusCode)
+			Console.WriteLine($"Row creation error: {content}");
 		return JObject.Parse(content);
 	}
 
