@@ -348,6 +348,26 @@ public sealed class NotionRestClient
 	}
 
 	/// <summary>
+	/// Creates a row in a database using the database_id parent type.
+	/// Use this when the data_source_id is not yet known (e.g. newly created databases).
+	/// </summary>
+	internal async Task<JObject> CreateDatabaseRowAsync(string databaseId, JObject properties)
+	{
+		Console.WriteLine($"Creating row in database {databaseId}");
+		var payload = new JObject
+		{
+			["parent"] = new JObject { ["type"] = "database_id", ["database_id"] = databaseId },
+			["properties"] = properties
+		};
+		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/pages", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
+		var content = await result.Content.ReadAsStringAsync();
+		Console.WriteLine($"Row created (via database_id): {result.StatusCode}");
+		if (!result.IsSuccessStatusCode)
+			Console.WriteLine($"Row creation error: {content}");
+		return JObject.Parse(content);
+	}
+
+	/// <summary>
 	/// Builds the Libraries database properties schema (matching the template).
 	/// </summary>
 	internal static JObject BuildLibrariesDatabaseSchema()

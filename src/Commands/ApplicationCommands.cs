@@ -660,56 +660,84 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				return;
 			}
 
-			// Step 5: Populate Libraries with all library entries
+			// Step 5: Populate Status Meaning entries
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
-				new DiscordTextDisplayComponent($"✅ Page created\n✅ Structure added\n✅ Status Meaning database\n✅ Libraries database\n⏳ Adding {DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Count} library entries...")
+				new DiscordTextDisplayComponent("✅ Page created\n✅ Structure added\n✅ Status Meaning database\n✅ Libraries database\n⏳ Populating status meanings...")
 			], accentColor: DiscordColor.Blue)));
 
-			// We need the data_source_id — search for the newly created database
-			// The database ID from creation response is the database_id, but we need the data_source_id
-			// Try to find it via search
-			string? dataSourceId = null;
-			var allDataSources = await DiscordBot.NotionRestClient.SearchAllDataSourcesAsync();
-			var matchingDs = allDataSources.FirstOrDefault(ds => ds.Parent?.DatabaseId == databaseId);
-			dataSourceId = matchingDs?.Id;
-
-			if (string.IsNullOrWhiteSpace(dataSourceId))
+			var statusMeaningDbId = statusMeaningDb["id"]?.ToString();
+			if (!string.IsNullOrWhiteSpace(statusMeaningDbId))
 			{
-				// Fallback: the database might not be immediately searchable; use the database_id as data_source query target
-				// Wait briefly and retry
-				await Task.Delay(2000);
-				allDataSources = await DiscordBot.NotionRestClient.SearchAllDataSourcesAsync();
-				matchingDs = allDataSources.FirstOrDefault(ds => ds.Parent?.DatabaseId == databaseId);
-				dataSourceId = matchingDs?.Id;
-			}
-
-			if (!string.IsNullOrWhiteSpace(dataSourceId))
-			{
-				foreach (var library in DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Values)
+				var statusMeanings = new Dictionary<string, string>
 				{
-					var rowProperties = new JObject
+					["Not Started"] = "The library has not started implementing this feature yet.",
+					["In Progress"] = "The library is actively working on implementing this feature.",
+					["In Review"] = "The implementation is complete and is being reviewed.",
+					["Ready For Release"] = "The implementation has been reviewed and is ready to be released.",
+					["Released"] = "The implementation has been released."
+				};
+
+				foreach (var (status, meaning) in statusMeanings)
+				{
+					var smRow = new JObject
 					{
-						["Library"] = new JObject
-						{
-							["title"] = new JArray
-							{
-								new JObject
-								{
-									["text"] = new JObject { ["content"] = library }
-								}
-							}
-						},
 						["Status"] = new JObject
 						{
-							["status"] = new JObject { ["name"] = "Not Started" }
+							["title"] = new JArray { new JObject { ["text"] = new JObject { ["content"] = status } } }
+						},
+						["Meaning"] = new JObject
+						{
+							["rich_text"] = new JArray { new JObject { ["text"] = new JObject { ["content"] = meaning } } }
 						}
 					};
-					await DiscordBot.NotionRestClient.CreateDataSourceRowAsync(dataSourceId, rowProperties);
+					await DiscordBot.NotionRestClient.CreateDatabaseRowAsync(statusMeaningDbId, smRow);
 				}
 			}
 
-			// Step 6: Auto-enable in config (if requested and data source is known)
+			// Step 6: Populate Libraries with all library entries
+			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
+				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
+				new DiscordTextDisplayComponent($"✅ Page created\n✅ Structure added\n✅ Status Meaning database\n✅ Libraries database\n✅ Status meanings populated\n⏳ Adding {DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Count} library entries...")
+			], accentColor: DiscordColor.Blue)));
+
+			foreach (var library in DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Values)
+			{
+				var rowProperties = new JObject
+				{
+					["Library"] = new JObject
+					{
+						["title"] = new JArray { new JObject { ["text"] = new JObject { ["content"] = library } } }
+					},
+					["Status"] = new JObject
+					{
+						["status"] = new JObject { ["name"] = "Not Started" }
+					}
+				};
+				await DiscordBot.NotionRestClient.CreateDatabaseRowAsync(databaseId, rowProperties);
+			}
+
+			// Step 7: Find data source ID for config registration (retry with backoff)
+			string? dataSourceId = null;
+			if (autoEnable)
+			{
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
+					new DiscordTextDisplayComponent("Creating Notion...".Header2()),
+					new DiscordTextDisplayComponent($"✅ Page created\n✅ Structure added\n✅ Status Meaning database\n✅ Libraries database\n✅ Status meanings populated\n✅ {DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Count} library entries added\n⏳ Discovering data source ID...")
+				], accentColor: DiscordColor.Blue)));
+
+				for (var attempt = 0; attempt < 5 && string.IsNullOrWhiteSpace(dataSourceId); attempt++)
+				{
+					if (attempt > 0)
+						await Task.Delay(2000 * attempt);
+
+					var allDataSources = await DiscordBot.NotionRestClient.SearchAllDataSourcesAsync();
+					var matchingDs = allDataSources.FirstOrDefault(ds => ds.Parent?.DatabaseId == databaseId);
+					dataSourceId = matchingDs?.Id;
+				}
+			}
+
+			// Step 8: Auto-enable in config
 			var publicUrl = pageResult["public_url"]?.ToString() ?? pageResult["url"]?.ToString();
 			var libraryCount = DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Count;
 			var statusParts = new List<string>
@@ -717,13 +745,10 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				"✅ Page created",
 				"✅ Structure added",
 				"✅ Status Meaning database",
-				"✅ Libraries database"
+				"✅ Libraries database",
+				"✅ Status meanings populated",
+				$"✅ {libraryCount} library entries added"
 			};
-
-			if (string.IsNullOrWhiteSpace(dataSourceId))
-				statusParts.Add("⚠️ Could not find data source ID — library rows not added (add manually)");
-			else
-				statusParts.Add($"✅ {libraryCount} library entries added");
 
 			if (autoEnable && !string.IsNullOrWhiteSpace(dataSourceId))
 			{
@@ -741,7 +766,7 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				statusParts.Add("✅ Registered in config");
 			}
 			else if (autoEnable && string.IsNullOrWhiteSpace(dataSourceId))
-				statusParts.Add("⚠️ Auto-enable skipped — data source ID unknown (use `/housekeeping enable_notion` manually)");
+				statusParts.Add("⚠️ Data source not found after retries — use `/housekeeping enable_notion` manually");
 			else
 				statusParts.Add("ℹ️ Auto-enable skipped (unchecked)");
 

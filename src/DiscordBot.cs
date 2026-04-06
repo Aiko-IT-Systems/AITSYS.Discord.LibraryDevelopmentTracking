@@ -69,7 +69,8 @@ public sealed class DiscordBot
 			Telemetry =
 			{
 				EnableSentry = false
-			}
+			},
+			Proxy = proxy
 		});
 		this.ApplicationCommandsExtension = this.DiscordClient.UseApplicationCommands(new()
 		{
