@@ -84,7 +84,7 @@ public class LibraryTracking : ApplicationCommandsModule
 			modalBuilder.AddLabelComponent(new("Pull Request / Commit", "The pull request or commit implementing the changes / features", new DiscordTextInputComponent(TextComponentStyle.Small, "pr_commit", "Pull Request / Commit with implementation", null, null, false, prCommit)));
 			modalBuilder.AddLabelComponent(new("Version", "The version number releasing the change / feature", new DiscordTextInputComponent(TextComponentStyle.Small, "version", "Released Version", null, null, false, version)));
 			modalBuilder.AddLabelComponent(new("Details", "Additional notes (like delays, etc)", new DiscordTextInputComponent(TextComponentStyle.Paragraph, "notes", "Notes", null, null, false, notes)));
-			//modalBuilder.AddLabelComponent(new("Discord.builders Support", "Whether the implementation is added to discord.builder", new DiscordCheckboxComponent("discord_builders", discordBuildersSupport)));
+			//modalBuilder.AddLabelComponent(new("Discord.builders Support", "Whether the implementation is added to discord.builder", new DiscordCheckboxComponent("discord_builders", discordBuildersSupport))); // Disabled until we can add more than 5 modal components
 			await result.Result.Interaction.CreateInteractionModalResponseAsync(modalBuilder);
 			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Currently modifying {selectedLibrary.Name}.\nPlease fill out the modal to update the status.")], accentColor: DiscordColor.Orange)));
 
@@ -600,153 +600,84 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 
 			var fullTitle = $"{title} - Implementation Statuses";
 			var parentPageId = DiscordBot.Config.NotionConfig.NotionParentPageId;
+			var templatePageId = DiscordBot.Config.NotionConfig.NotionTemplatePageId;
 
-			if (string.IsNullOrWhiteSpace(parentPageId))
+			if (string.IsNullOrWhiteSpace(parentPageId) || string.IsNullOrWhiteSpace(templatePageId))
 			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Parent page ID is not configured. Set `notion_parent_page_id` in config.json.")], accentColor: DiscordColor.DarkRed)));
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Parent page ID or template page ID is not configured. Set `notion_parent_page_id` and `notion_template_page_id` in config.json.")], accentColor: DiscordColor.DarkRed)));
 				return;
 			}
 
-			// Step 1: Create the page
+			if (!DiscordBot.NotionRestClient.HasV3Client)
+			{
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("V3 API not configured. Set `notion_user_token` and `notion_space_id` in config.json.\nThe internal API is required for template duplication.")], accentColor: DiscordColor.DarkRed)));
+				return;
+			}
+
+			// Step 1: Duplicate template via v3 API
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
-				new DiscordTextDisplayComponent("⏳ Creating page...")
+				new DiscordTextDisplayComponent("⏳ Duplicating template (this takes a few seconds)...")
 			], accentColor: DiscordColor.Blue)));
 
-			var pageResult = await DiscordBot.NotionRestClient.CreatePageAsync(parentPageId, fullTitle);
-			var pageId = pageResult["id"]?.ToString();
+			var pageId = await DiscordBot.NotionRestClient.DuplicatePageAsync(templatePageId, parentPageId);
 			if (string.IsNullOrWhiteSpace(pageId))
 			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create page.\n{pageResult.ToString().BlockCode("json")}")], accentColor: DiscordColor.DarkRed)));
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Failed to duplicate template page. The v3 API token may have expired.\nRefresh `notion_user_token` in config.json and try again.")], accentColor: DiscordColor.DarkRed)));
 				return;
 			}
 
-			// Step 2: Append blocks
+			// Step 2: Wait for page to become visible via public API
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
-				new DiscordTextDisplayComponent("✅ Page created\n⏳ Adding page structure...")
+				new DiscordTextDisplayComponent("✅ Template duplicated\n⏳ Waiting for page to become available...")
 			], accentColor: DiscordColor.Blue)));
 
-			var blocks = NotionRestClient.BuildTrackingPageBlocks(description);
-			await DiscordBot.NotionRestClient.AppendBlockChildrenAsync(pageId, blocks);
-
-			// Step 3: Create Status Meaning database + configure schema
-			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
-				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
-				new DiscordTextDisplayComponent("✅ Page created\n✅ Structure added\n⏳ Creating Status Meaning database...")
-			], accentColor: DiscordColor.Blue)));
-
-			var statusMeaningDb = await DiscordBot.NotionRestClient.CreateDatabaseAsync(pageId, "Status Meaning");
-			if (statusMeaningDb["object"]?.ToString() is "error")
+			if (!await DiscordBot.NotionRestClient.WaitForPageVisibilityAsync(pageId))
 			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create Status Meaning database.\n{statusMeaningDb["message"]?.ToString().BlockCode("json") ?? "Unknown error"}")], accentColor: DiscordColor.DarkRed)));
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Duplication succeeded but page is not yet visible via public API.\nPage ID: {pageId}\nTry running `/housekeeping enable_notion` after a few seconds.")], accentColor: DiscordColor.Yellow)));
 				return;
 			}
 
-			var statusMeaningDsId = statusMeaningDb["data_sources"]?[0]?["id"]?.ToString();
-			if (!string.IsNullOrWhiteSpace(statusMeaningDsId))
-			{
-				var smPatchSchema = NotionRestClient.BuildStatusMeaningDataSourcePatchSchema();
-				await DiscordBot.NotionRestClient.PatchDataSourceAsync(statusMeaningDsId, smPatchSchema);
-			}
-
-			// Step 4: Create Libraries database + configure schema
+			// Step 3: Rename the page
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
-				new DiscordTextDisplayComponent("✅ Page created\n✅ Structure added\n✅ Status Meaning database\n⏳ Creating Libraries database...")
+				new DiscordTextDisplayComponent("✅ Template duplicated\n⏳ Renaming page...")
 			], accentColor: DiscordColor.Blue)));
 
-			var librariesDb = await DiscordBot.NotionRestClient.CreateDatabaseAsync(pageId, "Libraries");
-			var databaseId = librariesDb["id"]?.ToString();
-			var librariesDsId = librariesDb["data_sources"]?[0]?["id"]?.ToString();
+			var (renameSuccess, renameResult) = await DiscordBot.NotionRestClient.RenamePageAsync(pageId, fullTitle);
 
-			if (string.IsNullOrWhiteSpace(databaseId) || string.IsNullOrWhiteSpace(librariesDsId) || librariesDb["object"]?.ToString() is "error")
-			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create Libraries database.\n{librariesDb["message"]?.ToString().BlockCode("json") ?? "Unknown error"}")], accentColor: DiscordColor.DarkRed)));
-				return;
-			}
-
-			var libPatchSchema = NotionRestClient.BuildLibrariesDataSourcePatchSchema();
-			var patchResult = await DiscordBot.NotionRestClient.PatchDataSourceAsync(librariesDsId, libPatchSchema);
-			if (patchResult["object"]?.ToString() is "error")
-			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to configure Libraries schema.\n{patchResult["message"]?.ToString().BlockCode("json") ?? "Unknown error"}")], accentColor: DiscordColor.DarkRed)));
-				return;
-			}
-
-			// Step 5: Populate Status Meaning entries
+			// Step 4: Update description callout
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
-				new DiscordTextDisplayComponent("✅ Page created\n✅ Structure added\n✅ Status Meaning database\n✅ Libraries database\n⏳ Populating status meanings...")
+				new DiscordTextDisplayComponent($"{(renameSuccess ? "✅" : "⚠️")} Page rename {(renameSuccess ? "done" : "failed")}\n⏳ Updating description...")
 			], accentColor: DiscordColor.Blue)));
 
-			if (!string.IsNullOrWhiteSpace(statusMeaningDsId))
-			{
-				var statusMeanings = new Dictionary<string, string>
-				{
-					["Not Started"] = "The library has not started implementing this feature yet.",
-					["In Progress"] = "The library is actively working on implementing this feature.",
-					["In Review"] = "The implementation is complete and is being reviewed.",
-					["Ready For Release"] = "The implementation has been reviewed and is ready to be released.",
-					["Released"] = "The implementation has been released."
-				};
+			var descriptionUpdated = await DiscordBot.NotionRestClient.UpdateDescriptionCalloutAsync(pageId, description);
 
-				foreach (var (status, meaning) in statusMeanings)
-				{
-					var smRow = new JObject
-					{
-						["Status"] = new JObject
-						{
-							["title"] = new JArray { new JObject { ["text"] = new JObject { ["content"] = status } } }
-						},
-						["Description"] = new JObject
-						{
-							["rich_text"] = new JArray { new JObject { ["text"] = new JObject { ["content"] = meaning } } }
-						}
-					};
-					await DiscordBot.NotionRestClient.CreateDataSourceRowAsync(statusMeaningDsId, smRow);
-				}
-			}
-
-			// Step 6: Populate Libraries with all library entries
+			// Step 5: Find Libraries data source ID
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
-				new DiscordTextDisplayComponent($"✅ Page created\n✅ Structure added\n✅ Status Meaning database\n✅ Libraries database\n✅ Status meanings populated\n⏳ Adding {DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Count} library entries...")
+				new DiscordTextDisplayComponent($"{(renameSuccess ? "✅" : "⚠️")} Page rename\n{(descriptionUpdated ? "✅" : "⚠️")} Description update\n⏳ Discovering Libraries database...")
 			], accentColor: DiscordColor.Blue)));
 
-			foreach (var library in DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Values)
-			{
-				var rowProperties = new JObject
-				{
-					["Library"] = new JObject
-					{
-						["title"] = new JArray { new JObject { ["text"] = new JObject { ["content"] = library } } }
-					},
-					["Status"] = new JObject
-					{
-						["status"] = new JObject { ["name"] = "Not Started" }
-					}
-				};
-				await DiscordBot.NotionRestClient.CreateDataSourceRowAsync(librariesDsId, rowProperties);
-			}
+			var (databaseId, dataSourceId) = await DiscordBot.NotionRestClient.FindLibrariesDataSourceAsync(pageId);
 
-			// Step 7: Auto-enable in config (data source ID already known from creation)
-			var dataSourceId = librariesDsId;
-
-			// Step 8: Auto-enable in config
-			var publicUrl = pageResult["public_url"]?.ToString() ?? pageResult["url"]?.ToString();
-			var libraryCount = DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Count;
+			// Step 6: Build result and auto-enable
+			var publicUrl = renameSuccess ? (renameResult["public_url"]?.ToString() ?? renameResult["url"]?.ToString()) : null;
 			var statusParts = new List<string>
 			{
-				"✅ Page created",
-				"✅ Structure added",
-				"✅ Status Meaning database",
-				"✅ Libraries database",
-				"✅ Status meanings populated",
-				$"✅ {libraryCount} library entries added"
+				"✅ Template duplicated",
+				renameSuccess ? "✅ Page renamed" : "⚠️ Page rename failed (rename manually)",
+				descriptionUpdated ? "✅ Description updated" : "⚠️ Description update failed (update manually)"
 			};
 
-			if (autoEnable)
+			if (!string.IsNullOrWhiteSpace(databaseId) && !string.IsNullOrWhiteSpace(dataSourceId))
+				statusParts.Add("✅ Libraries database found");
+			else
+				statusParts.Add("⚠️ Libraries database not auto-detected (register manually)");
+
+			if (autoEnable && !string.IsNullOrWhiteSpace(databaseId) && !string.IsNullOrWhiteSpace(dataSourceId))
 			{
 				var newEntry = new ImplementationTrackingConfig
 				{
@@ -761,6 +692,8 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				await File.WriteAllTextAsync("config.json", configJson);
 				statusParts.Add("✅ Registered in config");
 			}
+			else if (autoEnable)
+				statusParts.Add("⚠️ Auto-enable skipped (could not detect data source)");
 			else
 				statusParts.Add("ℹ️ Auto-enable skipped (unchecked)");
 
@@ -771,13 +704,13 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				new DiscordTextDisplayComponent("Notion Created Successfully ✅".Header2()),
 				new DiscordTextDisplayComponent(statusText),
 				new DiscordSeparatorComponent(true, SeparatorSpacingSize.Small),
-				new DiscordTextDisplayComponent($"{"Name".Bold()}: {fullTitle}\n{"Page ID".Bold()}: {pageId}\n{"Database ID".Bold()}: {databaseId}\n{"Data Source ID".Bold()}: {dataSourceId ?? "unknown"}")
+				new DiscordTextDisplayComponent($"{"Name".Bold()}: {fullTitle}\n{"Page ID".Bold()}: {pageId}\n{"Database ID".Bold()}: {databaseId ?? "unknown"}\n{"Data Source ID".Bold()}: {dataSourceId ?? "unknown"}")
 			};
 
 			if (!string.IsNullOrWhiteSpace(publicUrl))
 				responseComponents.Add(new DiscordActionRowComponent([new DiscordLinkButtonComponent(publicUrl, "Open in Notion", emoji: new DiscordComponentEmoji(1414062917137203383))]));
 
-			responseComponents.Add(new DiscordTextDisplayComponent(autoEnable
+			responseComponents.Add(new DiscordTextDisplayComponent(autoEnable && !string.IsNullOrWhiteSpace(dataSourceId)
 				? "-# The notion is now available for library tracking commands.\n-# ⚠️ Move the page into the Phases section in Notion manually."
 				: "-# Use `/housekeeping enable_notion` to register this notion for tracking.\n-# ⚠️ Move the page into the Phases section in Notion manually."));
 

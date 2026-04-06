@@ -56,6 +56,9 @@
 			}
 		],
 		"notion_template_page_id": "TEMPLATE_PAGE_ID_FOR_NEW_PAGES",
-		"notion_parent_page_id": "PARENT_PAGE_ID_FOR_NEW_NOTIONS"
+		"notion_parent_page_id": "PARENT_PAGE_ID_FOR_NEW_NOTIONS",
+		"notion_user_token": "YOUR_NOTION_SESSION_TOKEN_V2",
+		"notion_space_id": "YOUR_NOTION_WORKSPACE_SPACE_ID",
+		"notion_user_id": "YOUR_NOTION_USER_ID"
 	}
 }

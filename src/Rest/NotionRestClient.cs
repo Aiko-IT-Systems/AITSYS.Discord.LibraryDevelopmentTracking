@@ -17,17 +17,34 @@ public sealed class NotionRestClient
 {
 	private NotionConfig CONFIG { get; init; }
 	private HttpClient HTTP_CLIENT { get; init; }
+	private HttpClient? V3_HTTP_CLIENT { get; init; }
+
+	/// <summary>
+	/// Whether the internal v3 API is available (user token configured).
+	/// </summary>
+	internal bool HasV3Client => this.V3_HTTP_CLIENT is not null;
 
 	public NotionRestClient(NotionConfig config, WebProxy? proxy = null)
 	{
 		this.CONFIG = config;
-		this.HTTP_CLIENT = new HttpClient(new HttpClientHandler()
-		{
-			Proxy = proxy
-		});
+		var handler = new HttpClientHandler() { Proxy = proxy };
+		this.HTTP_CLIENT = new HttpClient(handler);
 		this.HTTP_CLIENT.DefaultRequestHeaders.Add("Authorization", "Bearer " + this.CONFIG.NotionToken);
 		this.HTTP_CLIENT.DefaultRequestHeaders.Add("Notion-Version", this.CONFIG.NotionApiVersion);
 		this.HTTP_CLIENT.DefaultRequestHeaders.Add("User-Agent", $"AITSYS-Discord-LibraryDevelopmentTracking (https://github.com/Aiko-IT-Systems/AITSYS.Discord.LibraryDevelopmentTracking, v{Assembly.GetExecutingAssembly().GetName().Version})");
+
+		if (!string.IsNullOrWhiteSpace(config.NotionUserToken) && !string.IsNullOrWhiteSpace(config.NotionSpaceId))
+		{
+			this.V3_HTTP_CLIENT = new HttpClient(new HttpClientHandler() { Proxy = proxy });
+			this.V3_HTTP_CLIENT.DefaultRequestHeaders.Add("Cookie", $"token_v2={config.NotionUserToken}");
+			if (!string.IsNullOrWhiteSpace(config.NotionUserId))
+				this.V3_HTTP_CLIENT.DefaultRequestHeaders.Add("x-notion-active-user-header", config.NotionUserId);
+			this.V3_HTTP_CLIENT.DefaultRequestHeaders.Add("x-notion-space-id", config.NotionSpaceId);
+			this.V3_HTTP_CLIENT.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36");
+			Console.WriteLine("V3 internal API client initialized");
+		}
+		else
+			Console.WriteLine("V3 internal API client not configured (notion_user_token or notion_space_id missing)");
 	}
 
 	internal async Task<NotionBlockResult?> GetBlockChildrenAsync(string notion)
@@ -575,4 +592,417 @@ public sealed class NotionRestClient
 			}
 		};
 	}
+
+	#region V3 Internal API (Template Duplication)
+
+	/// <summary>
+	/// Duplicates a page using the internal v3 API.
+	/// Creates a copy_indicator block under the target parent, then enqueues a duplicateBlock task.
+	/// Cleans up the copy_indicator on failure. Returns the new page ID on success, or null on failure.
+	/// </summary>
+	internal async Task<string?> DuplicatePageAsync(string sourcePageId, string targetParentPageId, int timeoutSeconds = 60)
+	{
+		if (this.V3_HTTP_CLIENT is null)
+			throw new InvalidOperationException("V3 API client not configured. Set notion_user_token and notion_space_id in config.");
+
+		var spaceId = this.CONFIG.NotionSpaceId!;
+		var newBlockId = Guid.NewGuid().ToString();
+
+		Console.WriteLine($"Creating copy_indicator {newBlockId} under {targetParentPageId}");
+
+		// Step 1: Create copy_indicator block via submitTransaction
+		var txPayload = new JObject
+		{
+			["requestId"] = Guid.NewGuid().ToString(),
+			["transactions"] = new JArray
+			{
+				new JObject
+				{
+					["id"] = Guid.NewGuid().ToString(),
+					["spaceId"] = spaceId,
+					["operations"] = new JArray
+					{
+						new JObject
+						{
+							["pointer"] = new JObject { ["table"] = "block", ["id"] = newBlockId, ["spaceId"] = spaceId },
+							["path"] = new JArray(),
+							["command"] = "set",
+							["args"] = new JObject
+							{
+								["type"] = "copy_indicator",
+								["id"] = newBlockId,
+								["parent_id"] = targetParentPageId,
+								["parent_table"] = "block",
+								["alive"] = true,
+								["space_id"] = spaceId
+							}
+						},
+						new JObject
+						{
+							["pointer"] = new JObject { ["table"] = "block", ["id"] = targetParentPageId, ["spaceId"] = spaceId },
+							["path"] = new JArray { "content" },
+							["command"] = "listAfter",
+							["args"] = new JObject { ["id"] = newBlockId }
+						}
+					}
+				}
+			}
+		};
+
+		var txResult = await this.V3_HTTP_CLIENT.PostAsync("https://www.notion.so/api/v3/submitTransaction",
+			new StringContent(txPayload.ToString(), Encoding.UTF8, "application/json"));
+		if (!txResult.IsSuccessStatusCode)
+		{
+			Console.WriteLine($"Failed to create copy_indicator: {txResult.StatusCode} {await txResult.Content.ReadAsStringAsync()}");
+			return null;
+		}
+
+		// Step 2: Enqueue duplicateBlock task
+		Console.WriteLine($"Enqueuing duplicateBlock: {sourcePageId} → {newBlockId}");
+		var taskPayload = new JObject
+		{
+			["task"] = new JObject
+			{
+				["eventName"] = "duplicateBlock",
+				["request"] = new JObject
+				{
+					["sourceBlocks"] = new JArray { new JObject { ["id"] = sourcePageId, ["spaceId"] = spaceId } },
+					["targetBlocks"] = new JArray { new JObject { ["id"] = newBlockId, ["spaceId"] = spaceId } },
+					["addCopyName"] = false,
+					["deepCopyTransclusionContainers"] = true,
+					["convertExternalObjectInstancesToPlaceholders"] = false,
+					["isTemplateInstantiation"] = false,
+					["allowRedundancy"] = false
+				},
+				["cellRouting"] = new JObject { ["spaceIds"] = new JArray { spaceId } }
+			}
+		};
+
+		var taskResult = await this.V3_HTTP_CLIENT.PostAsync("https://www.notion.so/api/v3/enqueueTask",
+			new StringContent(taskPayload.ToString(), Encoding.UTF8, "application/json"));
+		var taskContent = await taskResult.Content.ReadAsStringAsync();
+		if (!taskResult.IsSuccessStatusCode)
+		{
+			Console.WriteLine($"Failed to enqueue task: {taskResult.StatusCode} {taskContent}");
+			await CleanupBlockAsync(newBlockId, targetParentPageId);
+			return null;
+		}
+
+		var taskId = JObject.Parse(taskContent)["taskId"]?.ToString();
+		if (string.IsNullOrWhiteSpace(taskId))
+		{
+			Console.WriteLine("No taskId returned");
+			await CleanupBlockAsync(newBlockId, targetParentPageId);
+			return null;
+		}
+
+		Console.WriteLine($"Task enqueued: {taskId}");
+
+		// Step 3: Poll getTasks until success
+		for (var i = 0; i < timeoutSeconds; i++)
+		{
+			await Task.Delay(1000);
+			var pollPayload = new JObject { ["taskIds"] = new JArray { taskId } };
+			var pollResult = await this.V3_HTTP_CLIENT.PostAsync("https://www.notion.so/api/v3/getTasks",
+				new StringContent(pollPayload.ToString(), Encoding.UTF8, "application/json"));
+
+			if (!pollResult.IsSuccessStatusCode)
+			{
+				Console.WriteLine($"  [{i + 1}s] poll failed: {pollResult.StatusCode}");
+				continue; // Retry on transient poll failure
+			}
+
+			var pollContent = await pollResult.Content.ReadAsStringAsync();
+			var pollData = JObject.Parse(pollContent);
+			var result = pollData["results"]?[0];
+			var state = result?["state"]?.ToString();
+			var complete = result?["status"]?["completeBlocks"]?.ToString() ?? "?";
+			var total = result?["status"]?["totalBlocks"]?.ToString() ?? "?";
+			Console.WriteLine($"  [{i + 1}s] state={state} blocks={complete}/{total}");
+
+			if (state is "success")
+			{
+				Console.WriteLine($"Duplication complete! New page ID: {newBlockId}");
+				return newBlockId;
+			}
+
+			if (state is "failure")
+			{
+				var error = result?["error"]?.ToString();
+				Console.WriteLine($"Duplication failed: {error}");
+				await CleanupBlockAsync(newBlockId, targetParentPageId);
+				return null;
+			}
+		}
+
+		Console.WriteLine("Duplication timed out");
+		await CleanupBlockAsync(newBlockId, targetParentPageId);
+		return null;
+	}
+
+	/// <summary>
+	/// Cleans up a failed copy_indicator/duplicated block by setting alive=false.
+	/// </summary>
+	private async Task CleanupBlockAsync(string blockId, string parentId)
+	{
+		if (this.V3_HTTP_CLIENT is null) return;
+
+		Console.WriteLine($"Cleaning up block {blockId}");
+		try
+		{
+			var spaceId = this.CONFIG.NotionSpaceId!;
+			var cleanupPayload = new JObject
+			{
+				["requestId"] = Guid.NewGuid().ToString(),
+				["transactions"] = new JArray
+				{
+					new JObject
+					{
+						["id"] = Guid.NewGuid().ToString(),
+						["spaceId"] = spaceId,
+						["operations"] = new JArray
+						{
+							new JObject
+							{
+								["pointer"] = new JObject { ["table"] = "block", ["id"] = blockId, ["spaceId"] = spaceId },
+								["path"] = new JArray(),
+								["command"] = "update",
+								["args"] = new JObject { ["alive"] = false }
+							},
+							new JObject
+							{
+								["pointer"] = new JObject { ["table"] = "block", ["id"] = parentId, ["spaceId"] = spaceId },
+								["path"] = new JArray { "content" },
+								["command"] = "listRemove",
+								["args"] = new JObject { ["id"] = blockId }
+							}
+						}
+					}
+				}
+			};
+			await this.V3_HTTP_CLIENT.PostAsync("https://www.notion.so/api/v3/submitTransaction",
+				new StringContent(cleanupPayload.ToString(), Encoding.UTF8, "application/json"));
+			Console.WriteLine("Cleanup done");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Cleanup failed: {ex.Message}");
+		}
+	}
+
+	/// <summary>
+	/// Waits for a duplicated page to become visible via the public API, with retries.
+	/// </summary>
+	internal async Task<bool> WaitForPageVisibilityAsync(string pageId, int maxRetries = 10)
+	{
+		for (var i = 0; i < maxRetries; i++)
+		{
+			try
+			{
+				var result = await this.HTTP_CLIENT.GetAsync($"https://api.notion.com/v1/pages/{pageId}");
+				if (result.IsSuccessStatusCode)
+				{
+					Console.WriteLine($"Page {pageId} visible after {i + 1} attempts");
+					return true;
+				}
+			}
+			catch { /* Retry */ }
+
+			await Task.Delay(1000 * (i + 1)); // Linear backoff
+		}
+
+		Console.WriteLine($"Page {pageId} not visible after {maxRetries} attempts");
+		return false;
+	}
+
+	/// <summary>
+	/// Renames a page via the public API with retry on failure.
+	/// </summary>
+	internal async Task<(bool Success, JObject Result)> RenamePageAsync(string pageId, string newTitle)
+	{
+		Console.WriteLine($"Renaming page {pageId} to '{newTitle}'");
+		var payload = new JObject
+		{
+			["properties"] = new JObject
+			{
+				["title"] = new JArray
+				{
+					new JObject { ["text"] = new JObject { ["content"] = newTitle } }
+				}
+			}
+		};
+
+		for (var attempt = 0; attempt < 3; attempt++)
+		{
+			var result = await this.HTTP_CLIENT.PatchAsync($"https://api.notion.com/v1/pages/{pageId}",
+				new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
+			var content = await result.Content.ReadAsStringAsync();
+
+			if (result.IsSuccessStatusCode)
+			{
+				Console.WriteLine($"Page renamed successfully");
+				return (true, JObject.Parse(content));
+			}
+
+			Console.WriteLine($"Rename attempt {attempt + 1} failed: {result.StatusCode} {content}");
+			await Task.Delay(2000 * (attempt + 1));
+		}
+
+		return (false, new JObject());
+	}
+
+	/// <summary>
+	/// Updates the description callout (💡) on a tracking page with retry.
+	/// Returns true if the callout was found and updated.
+	/// </summary>
+	internal async Task<bool> UpdateDescriptionCalloutAsync(string pageId, string newDescription)
+	{
+		Console.WriteLine($"Updating description callout on page {pageId}");
+
+		for (var attempt = 0; attempt < 3; attempt++)
+		{
+			var children = await this.HTTP_CLIENT.GetAsync($"https://api.notion.com/v1/blocks/{pageId}/children");
+			if (!children.IsSuccessStatusCode)
+			{
+				Console.WriteLine($"Failed to get children (attempt {attempt + 1}): {children.StatusCode}");
+				await Task.Delay(2000 * (attempt + 1));
+				continue;
+			}
+
+			var childrenJson = JObject.Parse(await children.Content.ReadAsStringAsync());
+			var blocks = childrenJson["results"] as JArray ?? [];
+
+			foreach (var block in blocks)
+			{
+				if (block["type"]?.ToString() is not "callout")
+					continue;
+
+				var icon = block["callout"]?["icon"];
+				if (icon?["type"]?.ToString() is "emoji" && icon?["emoji"]?.ToString() is "💡")
+				{
+					var blockId = block["id"]?.ToString();
+					if (string.IsNullOrWhiteSpace(blockId))
+						break;
+
+					var updatePayload = new JObject
+					{
+						["callout"] = new JObject
+						{
+							["rich_text"] = new JArray
+							{
+								new JObject { ["type"] = "text", ["text"] = new JObject { ["content"] = newDescription } }
+							}
+						}
+					};
+					var updateResult = await this.HTTP_CLIENT.PatchAsync($"https://api.notion.com/v1/blocks/{blockId}",
+						new StringContent(updatePayload.ToString(), Encoding.UTF8, "application/json"));
+
+					if (updateResult.IsSuccessStatusCode)
+					{
+						Console.WriteLine($"Description callout updated successfully");
+						return true;
+					}
+
+					Console.WriteLine($"Description callout update failed: {updateResult.StatusCode}");
+					return false;
+				}
+			}
+
+			Console.WriteLine($"Description callout not found (attempt {attempt + 1})");
+			await Task.Delay(2000 * (attempt + 1));
+		}
+
+		Console.WriteLine("Description callout not found after all attempts");
+		return false;
+	}
+
+	/// <summary>
+	/// Finds the Libraries data source ID by crawling the page's block tree
+	/// to find child_database blocks, then matching by schema columns.
+	/// </summary>
+	internal async Task<(string? DatabaseId, string? DataSourceId)> FindLibrariesDataSourceAsync(string pageId)
+	{
+		Console.WriteLine($"Finding Libraries data source for page {pageId}");
+
+		// Recursively collect all child_database block IDs from the page tree
+		var databaseIds = new List<string>();
+		await CollectChildDatabasesAsync(pageId, databaseIds, maxDepth: 4);
+
+		Console.WriteLine($"Found {databaseIds.Count} child databases");
+
+		// For each database, check if it has the tracking schema (Library title column + Status)
+		foreach (var dbId in databaseIds)
+		{
+			try
+			{
+				var dbResult = await this.HTTP_CLIENT.GetAsync($"https://api.notion.com/v1/databases/{dbId}");
+				if (!dbResult.IsSuccessStatusCode)
+					continue;
+
+				var dbJson = JObject.Parse(await dbResult.Content.ReadAsStringAsync());
+				var title = dbJson["title"]?[0]?["text"]?["content"]?.ToString();
+				var properties = dbJson["properties"] as JObject;
+
+				// Verify this is the Libraries database by checking for key columns
+				if (properties is not null &&
+					(title?.Contains("Libraries", StringComparison.OrdinalIgnoreCase) is true ||
+					 (properties.ContainsKey("Library") && properties.ContainsKey("Status"))))
+				{
+					// Get the data source ID for this database
+					var dataSources = dbJson["data_sources"] as JArray;
+					var dsId = dataSources?[0]?["id"]?.ToString();
+
+					if (!string.IsNullOrWhiteSpace(dsId))
+					{
+						Console.WriteLine($"Found Libraries database: DB={dbId}, DS={dsId}, Title={title}");
+						return (dbId, dsId);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error checking database {dbId}: {ex.Message}");
+			}
+		}
+
+		Console.WriteLine("Libraries data source not found via block tree crawl");
+		return (null, null);
+	}
+
+	/// <summary>
+	/// Recursively collects child_database block IDs from a page/block's children.
+	/// </summary>
+	private async Task CollectChildDatabasesAsync(string blockId, List<string> databaseIds, int maxDepth, int currentDepth = 0)
+	{
+		if (currentDepth >= maxDepth) return;
+
+		try
+		{
+			var children = await this.HTTP_CLIENT.GetAsync($"https://api.notion.com/v1/blocks/{blockId}/children?page_size=100");
+			if (!children.IsSuccessStatusCode) return;
+
+			var childrenJson = JObject.Parse(await children.Content.ReadAsStringAsync());
+			var blocks = childrenJson["results"] as JArray ?? [];
+
+			foreach (var block in blocks)
+			{
+				var type = block["type"]?.ToString();
+				var id = block["id"]?.ToString();
+				if (string.IsNullOrWhiteSpace(id)) continue;
+
+				if (type is "child_database")
+					databaseIds.Add(id);
+
+				// Recurse into blocks that may contain nested databases
+				if (block["has_children"]?.Value<bool>() is true)
+					await CollectChildDatabasesAsync(id, databaseIds, maxDepth, currentDepth + 1);
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error crawling children of {blockId}: {ex.Message}");
+		}
+	}
+
+	#endregion
 }

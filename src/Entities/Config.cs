@@ -44,6 +44,15 @@ public class NotionConfig
 
 	[JsonProperty("notion_parent_page_id")]
 	public string NotionParentPageId { get; set; }
+
+	[JsonProperty("notion_user_token")]
+	public string? NotionUserToken { get; set; }
+
+	[JsonProperty("notion_space_id")]
+	public string? NotionSpaceId { get; set; }
+
+	[JsonProperty("notion_user_id")]
+	public string? NotionUserId { get; set; }
 }
 
 public class ImplementationTrackingConfig
