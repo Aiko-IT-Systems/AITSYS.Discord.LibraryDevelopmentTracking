@@ -53,18 +53,26 @@ public sealed class NotionRestClient
 		var targetDataSource = this.CONFIG.ImplementationTrackingConfig.FirstOrDefault(x => x.PageId.Equals(notion, StringComparison.InvariantCultureIgnoreCase))?.DataSourceId;
 		if (string.IsNullOrWhiteSpace(targetDataSource))
 			throw new ArgumentException("The provided notion page ID does not have a corresponding data source ID in the configuration.", nameof(notion));
-		var payload = $@"{{
+		var allDataSources = await SearchAllDataSourcesAsync();
+		Console.WriteLine("Notion searched");
+		return allDataSources.FirstOrDefault(x => x.Id.Equals(targetDataSource, StringComparison.InvariantCultureIgnoreCase));
+	}
+
+	internal async Task<List<NotionSearchDataSourceResult.DataSourceResult>> SearchAllDataSourcesAsync()
+	{
+		Console.WriteLine("Searching Notion for all data sources");
+		var payload = @"{
 			""query"": ""Libraries"",
-			""filter"": {{
+			""filter"": {
 				""value"": ""data_source"",
 				""property"": ""object""
-			}}
-		}}";
+			}
+		}";
 		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/search", new StringContent(payload, Encoding.UTF8, "application/json"));
 		var content = await result.Content.ReadAsStringAsync();
 		var res = JsonConvert.DeserializeObject<NotionSearchDataSourceResult>(content);
-		Console.WriteLine("Notion searched");
-		return res?.Results?.FirstOrDefault(x => x.Id.Equals(targetDataSource, StringComparison.InvariantCultureIgnoreCase));
+		Console.WriteLine($"Found {res?.Results?.Count ?? 0} data sources");
+		return res?.Results ?? [];
 	}
 
 	internal async Task<NotionDataSourceQueryResult?> QueryDataSourceAsync(string dataSourceId, string libraryName)
