@@ -240,10 +240,10 @@ public class LibraryTracking : ApplicationCommandsModule
 		try
 		{
 			await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, ephemeral ? new DiscordInteractionResponseBuilder().AsEphemeral() : null);
-			var libraryName = DiscordBot.Config.DiscordConfig.LibraryRoleMapping[ulong.Parse(library)];
-			if (libraryName is null)
+
+			if (!ulong.TryParse(library, out var libraryRoleId) || !DiscordBot.Config.DiscordConfig.LibraryRoleMapping.TryGetValue(libraryRoleId, out var libraryName) || libraryName is null)
 			{
-				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("The selected library is not valid. Please contact a server administrator.")])));
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("The selected library is not valid. Please contact a server administrator.")], accentColor: DiscordColor.DarkRed)));
 				return;
 			}
 
@@ -495,9 +495,7 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
 		try
 		{
-			var libraryRoleId = ulong.Parse(library);
-			var libraryName = DiscordBot.Config.DiscordConfig.LibraryRoleMapping[libraryRoleId];
-			if (libraryName is null)
+			if (!ulong.TryParse(library, out var libraryRoleId) || !DiscordBot.Config.DiscordConfig.LibraryRoleMapping.TryGetValue(libraryRoleId, out var libraryName) || libraryName is null)
 			{
 				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("The selected library is not valid. Please contact a server administrator.")], accentColor: DiscordColor.DarkRed)));
 				return;
@@ -507,30 +505,37 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 
 			foreach (var notion in DiscordBot.Config.NotionConfig.ImplementationTrackingConfig)
 			{
-				var page = await DiscordBot.NotionRestClient.GetPageAsync(notion.PageId);
-				var pageTitle = page.PageProperties.Title.Titles[0].Text.Content.Trim();
+				try
+				{
+					var page = await DiscordBot.NotionRestClient.GetPageAsync(notion.PageId);
+					var pageTitle = page?.PageProperties?.Title?.Titles?.FirstOrDefault()?.Text?.Content?.Trim() ?? notion.Name;
 
-				var dataSource = await DiscordBot.NotionRestClient.GetDataSourceBySearchAsync(notion.PageId);
-				if (dataSource is null)
-					continue;
+					var dataSource = await DiscordBot.NotionRestClient.GetDataSourceBySearchAsync(notion.PageId);
+					if (dataSource is null)
+						continue;
 
-				var queryResult = await DiscordBot.NotionRestClient.QueryDataSourceAsync(dataSource.Id, libraryName);
-				if (queryResult?.Results is null || queryResult.Results.Count is 0)
-					continue;
+					var queryResult = await DiscordBot.NotionRestClient.QueryDataSourceAsync(dataSource.Id, libraryName);
+					if (queryResult?.Results is null || queryResult.Results.Count is 0)
+						continue;
 
-				var status = queryResult.Results[0].Properties.Status.InnerStatus.Name;
-				if (status is "Released")
-					continue;
+					var status = queryResult.Results[0].Properties.Status.InnerStatus.Name;
+					if (status is "Released")
+						continue;
 
-				var prUrl = queryResult.Results[0].Properties.PullRequestCommit.Url;
-				var version = queryResult.Results[0].Properties.ReleasedInVersion.RichText.Count is not 0
-					? string.Join("", queryResult.Results[0].Properties.ReleasedInVersion.RichText.SelectMany(x => x.Text.Content))
-					: null;
-				var notes = queryResult.Results[0].Properties.Notes.RichText.Count is not 0
-					? string.Join("", queryResult.Results[0].Properties.Notes.RichText.SelectMany(x => x.Text.Content))
-					: null;
+					var prUrl = queryResult.Results[0].Properties.PullRequestCommit.Url;
+					var version = queryResult.Results[0].Properties.ReleasedInVersion.RichText.Count is not 0
+						? string.Join("", queryResult.Results[0].Properties.ReleasedInVersion.RichText.SelectMany(x => x.Text.Content))
+						: null;
+					var notes = queryResult.Results[0].Properties.Notes.RichText.Count is not 0
+						? string.Join("", queryResult.Results[0].Properties.Notes.RichText.SelectMany(x => x.Text.Content))
+						: null;
 
-				pendingEntries.Add((pageTitle, status, prUrl, version, notes));
+					pendingEntries.Add((pageTitle, status, prUrl, version, notes));
+				}
+				catch (Exception ex)
+				{
+					Console.WriteLine($"Skipping notion '{notion.Name}' due to error: {ex.Message}");
+				}
 			}
 
 			if (pendingEntries.Count is 0)
