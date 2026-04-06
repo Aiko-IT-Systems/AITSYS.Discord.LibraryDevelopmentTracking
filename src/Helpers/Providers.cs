@@ -8,12 +8,24 @@ using DisCatSharp.Entities;
 
 namespace AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
 
-public class NotionTrackingListProvider : IChoiceProvider
+public class NotionTrackingListProvider : IAutocompleteProvider
 {
-	public Task<IEnumerable<DiscordApplicationCommandOptionChoice>> Provider()
+	public Task<IEnumerable<DiscordApplicationCommandAutocompleteChoice>> Provider(AutocompleteContext ctx)
 	{
-		var options = DiscordBot.Config.NotionConfig.ImplementationTrackingConfig.Select(x => new DiscordApplicationCommandOptionChoice(x.Name, x.PageId));
-		return Task.FromResult(options.AsEnumerable());
+		IEnumerable<DiscordApplicationCommandAutocompleteChoice> options;
+
+		if (ctx.FocusedOption.Value is null || string.IsNullOrWhiteSpace(ctx.FocusedOption.Value.ToString()))
+		{
+			options = DiscordBot.Config.NotionConfig.ImplementationTrackingConfig.Select(x => new DiscordApplicationCommandAutocompleteChoice(x.Name, x.PageId)).Take(25);
+			return Task.FromResult(options.AsEnumerable());
+		}
+
+		var search = ctx.FocusedOption.Value.ToString()!.ToLowerInvariant();
+		options = DiscordBot.Config.NotionConfig.ImplementationTrackingConfig
+			.Where(x => x.Name.Contains(search, StringComparison.InvariantCultureIgnoreCase))
+			.Select(x => new DiscordApplicationCommandAutocompleteChoice(x.Name, x.PageId))
+			.Take(25);
+		return Task.FromResult(options);
 	}
 }
 
