@@ -59,11 +59,12 @@ public sealed class NotionRestClient
 		return allDataSources.FirstOrDefault(x => x.Id.Equals(targetDataSource, StringComparison.InvariantCultureIgnoreCase));
 	}
 
+	private static readonly HashSet<string> s_trackingSchemaColumns = ["Library", "Status", "Pull Request / Commit", "Modified By"];
+
 	internal async Task<List<NotionSearchDataSourceResult.DataSourceResult>> SearchAllDataSourcesAsync()
 	{
 		Console.WriteLine("Searching Notion for all data sources");
 		var payload = @"{
-			""query"": ""Libraries"",
 			""filter"": {
 				""value"": ""data_source"",
 				""property"": ""object""
@@ -72,8 +73,20 @@ public sealed class NotionRestClient
 		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/search", new StringContent(payload, Encoding.UTF8, "application/json"));
 		var content = await result.Content.ReadAsStringAsync();
 		var res = JsonConvert.DeserializeObject<NotionSearchDataSourceResult>(content);
-		Console.WriteLine($"Found {res?.Results?.Count ?? 0} data sources");
-		return res?.Results ?? [];
+		var all = res?.Results ?? [];
+
+		// Filter by schema: must have the required tracking table columns
+		var tracking = all.Where(ds =>
+		{
+			if (ds.Properties is null)
+				return false;
+
+			var propNames = JObject.FromObject(ds.Properties).Properties().Select(p => p.Name).ToHashSet();
+			return s_trackingSchemaColumns.IsSubsetOf(propNames);
+		}).ToList();
+
+		Console.WriteLine($"Found {all.Count} data sources, {tracking.Count} match tracking schema");
+		return tracking;
 	}
 
 	/// <summary>
