@@ -630,33 +630,47 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 			var blocks = NotionRestClient.BuildTrackingPageBlocks(description);
 			await DiscordBot.NotionRestClient.AppendBlockChildrenAsync(pageId, blocks);
 
-			// Step 3: Create Status Meaning database under page
+			// Step 3: Create Status Meaning database + configure schema
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
 				new DiscordTextDisplayComponent("✅ Page created\n✅ Structure added\n⏳ Creating Status Meaning database...")
 			], accentColor: DiscordColor.Blue)));
 
-			var statusMeaningSchema = NotionRestClient.BuildStatusMeaningDatabaseSchema();
-			var statusMeaningDb = await DiscordBot.NotionRestClient.CreateDatabaseAsync(pageId, "Status Meaning", statusMeaningSchema);
+			var statusMeaningDb = await DiscordBot.NotionRestClient.CreateDatabaseAsync(pageId, "Status Meaning");
 			if (statusMeaningDb["object"]?.ToString() is "error")
 			{
 				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create Status Meaning database.\n{statusMeaningDb["message"]?.ToString().BlockCode("json") ?? "Unknown error"}")], accentColor: DiscordColor.DarkRed)));
 				return;
 			}
 
-			// Step 4: Create Libraries database under page
+			var statusMeaningDsId = statusMeaningDb["data_sources"]?[0]?["id"]?.ToString();
+			if (!string.IsNullOrWhiteSpace(statusMeaningDsId))
+			{
+				var smPatchSchema = NotionRestClient.BuildStatusMeaningDataSourcePatchSchema();
+				await DiscordBot.NotionRestClient.PatchDataSourceAsync(statusMeaningDsId, smPatchSchema);
+			}
+
+			// Step 4: Create Libraries database + configure schema
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
 				new DiscordTextDisplayComponent("✅ Page created\n✅ Structure added\n✅ Status Meaning database\n⏳ Creating Libraries database...")
 			], accentColor: DiscordColor.Blue)));
 
-			var librariesSchema = NotionRestClient.BuildLibrariesDatabaseSchema();
-			var librariesDb = await DiscordBot.NotionRestClient.CreateDatabaseAsync(pageId, "Libraries", librariesSchema);
+			var librariesDb = await DiscordBot.NotionRestClient.CreateDatabaseAsync(pageId, "Libraries");
 			var databaseId = librariesDb["id"]?.ToString();
+			var librariesDsId = librariesDb["data_sources"]?[0]?["id"]?.ToString();
 
-			if (string.IsNullOrWhiteSpace(databaseId) || librariesDb["object"]?.ToString() is "error")
+			if (string.IsNullOrWhiteSpace(databaseId) || string.IsNullOrWhiteSpace(librariesDsId) || librariesDb["object"]?.ToString() is "error")
 			{
 				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create Libraries database.\n{librariesDb["message"]?.ToString().BlockCode("json") ?? "Unknown error"}")], accentColor: DiscordColor.DarkRed)));
+				return;
+			}
+
+			var libPatchSchema = NotionRestClient.BuildLibrariesDataSourcePatchSchema();
+			var patchResult = await DiscordBot.NotionRestClient.PatchDataSourceAsync(librariesDsId, libPatchSchema);
+			if (patchResult["object"]?.ToString() is "error")
+			{
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to configure Libraries schema.\n{patchResult["message"]?.ToString().BlockCode("json") ?? "Unknown error"}")], accentColor: DiscordColor.DarkRed)));
 				return;
 			}
 
@@ -666,8 +680,7 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				new DiscordTextDisplayComponent("✅ Page created\n✅ Structure added\n✅ Status Meaning database\n✅ Libraries database\n⏳ Populating status meanings...")
 			], accentColor: DiscordColor.Blue)));
 
-			var statusMeaningDbId = statusMeaningDb["id"]?.ToString();
-			if (!string.IsNullOrWhiteSpace(statusMeaningDbId))
+			if (!string.IsNullOrWhiteSpace(statusMeaningDsId))
 			{
 				var statusMeanings = new Dictionary<string, string>
 				{
@@ -686,12 +699,12 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 						{
 							["title"] = new JArray { new JObject { ["text"] = new JObject { ["content"] = status } } }
 						},
-						["Meaning"] = new JObject
+						["Description"] = new JObject
 						{
 							["rich_text"] = new JArray { new JObject { ["text"] = new JObject { ["content"] = meaning } } }
 						}
 					};
-					await DiscordBot.NotionRestClient.CreateDatabaseRowAsync(statusMeaningDbId, smRow);
+					await DiscordBot.NotionRestClient.CreateDataSourceRowAsync(statusMeaningDsId, smRow);
 				}
 			}
 
@@ -714,28 +727,11 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 						["status"] = new JObject { ["name"] = "Not Started" }
 					}
 				};
-				await DiscordBot.NotionRestClient.CreateDatabaseRowAsync(databaseId, rowProperties);
+				await DiscordBot.NotionRestClient.CreateDataSourceRowAsync(librariesDsId, rowProperties);
 			}
 
-			// Step 7: Find data source ID for config registration (retry with backoff)
-			string? dataSourceId = null;
-			if (autoEnable)
-			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
-					new DiscordTextDisplayComponent("Creating Notion...".Header2()),
-					new DiscordTextDisplayComponent($"✅ Page created\n✅ Structure added\n✅ Status Meaning database\n✅ Libraries database\n✅ Status meanings populated\n✅ {DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Count} library entries added\n⏳ Discovering data source ID...")
-				], accentColor: DiscordColor.Blue)));
-
-				for (var attempt = 0; attempt < 5 && string.IsNullOrWhiteSpace(dataSourceId); attempt++)
-				{
-					if (attempt > 0)
-						await Task.Delay(2000 * attempt);
-
-					var allDataSources = await DiscordBot.NotionRestClient.SearchAllDataSourcesAsync();
-					var matchingDs = allDataSources.FirstOrDefault(ds => ds.Parent?.DatabaseId == databaseId);
-					dataSourceId = matchingDs?.Id;
-				}
-			}
+			// Step 7: Auto-enable in config (data source ID already known from creation)
+			var dataSourceId = librariesDsId;
 
 			// Step 8: Auto-enable in config
 			var publicUrl = pageResult["public_url"]?.ToString() ?? pageResult["url"]?.ToString();
@@ -750,7 +746,7 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				$"✅ {libraryCount} library entries added"
 			};
 
-			if (autoEnable && !string.IsNullOrWhiteSpace(dataSourceId))
+			if (autoEnable)
 			{
 				var newEntry = new ImplementationTrackingConfig
 				{
@@ -765,8 +761,6 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 				await File.WriteAllTextAsync("config.json", configJson);
 				statusParts.Add("✅ Registered in config");
 			}
-			else if (autoEnable && string.IsNullOrWhiteSpace(dataSourceId))
-				statusParts.Add("⚠️ Data source not found after retries — use `/housekeeping enable_notion` manually");
 			else
 				statusParts.Add("ℹ️ Auto-enable skipped (unchecked)");
 
@@ -783,7 +777,7 @@ public class LibraryHouseKeeping : ApplicationCommandsModule
 			if (!string.IsNullOrWhiteSpace(publicUrl))
 				responseComponents.Add(new DiscordActionRowComponent([new DiscordLinkButtonComponent(publicUrl, "Open in Notion", emoji: new DiscordComponentEmoji(1414062917137203383))]));
 
-			responseComponents.Add(new DiscordTextDisplayComponent(autoEnable && !string.IsNullOrWhiteSpace(dataSourceId)
+			responseComponents.Add(new DiscordTextDisplayComponent(autoEnable
 				? "-# The notion is now available for library tracking commands.\n-# ⚠️ Move the page into the Phases section in Notion manually."
 				: "-# Use `/housekeeping enable_notion` to register this notion for tracking.\n-# ⚠️ Move the page into the Phases section in Notion manually."));
 

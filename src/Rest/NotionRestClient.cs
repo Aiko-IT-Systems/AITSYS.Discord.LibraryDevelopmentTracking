@@ -300,10 +300,11 @@ public sealed class NotionRestClient
 
 	/// <summary>
 	/// Creates a new inline database under the given parent page.
-	/// Note: Notion API only supports page_id parent for database creation.
-	/// Returns the created database as a JObject.
+	/// Note: In API version 2025-09-03, schema properties are ignored during creation.
+	/// Use <see cref="PatchDataSourceAsync"/> to set up the schema on the returned data source.
+	/// The response includes a <c>data_sources[0].id</c> field.
 	/// </summary>
-	internal async Task<JObject> CreateDatabaseAsync(string parentPageId, string title, JObject properties)
+	internal async Task<JObject> CreateDatabaseAsync(string parentPageId, string title)
 	{
 		Console.WriteLine($"Creating database '{title}' under page {parentPageId}");
 		var payload = new JObject
@@ -317,14 +318,30 @@ public sealed class NotionRestClient
 					["text"] = new JObject { ["content"] = title }
 				}
 			},
-			["is_inline"] = true,
-			["properties"] = properties
+			["is_inline"] = true
 		};
 		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/databases", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
 		var content = await result.Content.ReadAsStringAsync();
 		Console.WriteLine($"Database created: {result.StatusCode}");
 		if (!result.IsSuccessStatusCode)
 			Console.WriteLine($"Database creation error: {content}");
+		return JObject.Parse(content);
+	}
+
+	/// <summary>
+	/// Patches a data source to set up or modify its property schema.
+	/// In API version 2025-09-03, the data source owns the schema, not the database.
+	/// To rename the default title property, use <c>{"Name": {"name": "NewTitle"}}</c>.
+	/// </summary>
+	internal async Task<JObject> PatchDataSourceAsync(string dataSourceId, JObject properties)
+	{
+		Console.WriteLine($"Patching data source {dataSourceId} with {properties.Count} properties");
+		var payload = new JObject { ["properties"] = properties };
+		var result = await this.HTTP_CLIENT.PatchAsync($"https://api.notion.com/v1/data_sources/{dataSourceId}", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
+		var content = await result.Content.ReadAsStringAsync();
+		Console.WriteLine($"Data source patched: {result.StatusCode}");
+		if (!result.IsSuccessStatusCode)
+			Console.WriteLine($"Data source patch error: {content}");
 		return JObject.Parse(content);
 	}
 
@@ -348,33 +365,14 @@ public sealed class NotionRestClient
 	}
 
 	/// <summary>
-	/// Creates a row in a database using the database_id parent type.
-	/// Use this when the data_source_id is not yet known (e.g. newly created databases).
+	/// Builds the Libraries data source PATCH schema.
+	/// Renames the default <c>Name</c> title to <c>Library</c> and adds all tracking columns.
 	/// </summary>
-	internal async Task<JObject> CreateDatabaseRowAsync(string databaseId, JObject properties)
-	{
-		Console.WriteLine($"Creating row in database {databaseId}");
-		var payload = new JObject
-		{
-			["parent"] = new JObject { ["type"] = "database_id", ["database_id"] = databaseId },
-			["properties"] = properties
-		};
-		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/pages", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
-		var content = await result.Content.ReadAsStringAsync();
-		Console.WriteLine($"Row created (via database_id): {result.StatusCode}");
-		if (!result.IsSuccessStatusCode)
-			Console.WriteLine($"Row creation error: {content}");
-		return JObject.Parse(content);
-	}
-
-	/// <summary>
-	/// Builds the Libraries database properties schema (matching the template).
-	/// </summary>
-	internal static JObject BuildLibrariesDatabaseSchema()
+	internal static JObject BuildLibrariesDataSourcePatchSchema()
 	{
 		return new JObject
 		{
-			["Library"] = new JObject { ["title"] = new JObject() },
+			["Name"] = new JObject { ["name"] = "Library" },
 			["Status"] = new JObject
 			{
 				["status"] = new JObject
@@ -386,27 +384,6 @@ public sealed class NotionRestClient
 						new JObject { ["name"] = "In Review", ["color"] = "blue" },
 						new JObject { ["name"] = "Ready For Release", ["color"] = "yellow" },
 						new JObject { ["name"] = "Released", ["color"] = "green" }
-					},
-					["groups"] = new JArray
-					{
-						new JObject
-						{
-							["name"] = "To-do",
-							["color"] = "gray",
-							["option_ids"] = new JArray()
-						},
-						new JObject
-						{
-							["name"] = "In progress",
-							["color"] = "blue",
-							["option_ids"] = new JArray()
-						},
-						new JObject
-						{
-							["name"] = "Complete",
-							["color"] = "green",
-							["option_ids"] = new JArray()
-						}
 					}
 				}
 			},
@@ -420,20 +397,15 @@ public sealed class NotionRestClient
 	}
 
 	/// <summary>
-	/// Builds the Status Meaning database properties schema.
+	/// Builds the Status Meaning data source PATCH schema.
+	/// Renames the default <c>Name</c> title to <c>Status</c> and adds <c>Description</c>.
 	/// </summary>
-	internal static JObject BuildStatusMeaningDatabaseSchema()
+	internal static JObject BuildStatusMeaningDataSourcePatchSchema()
 	{
 		return new JObject
 		{
-			["Status"] = new JObject
-			{
-				["title"] = new JObject()
-			},
-			["Meaning"] = new JObject
-			{
-				["rich_text"] = new JObject()
-			}
+			["Name"] = new JObject { ["name"] = "Status" },
+			["Description"] = new JObject { ["rich_text"] = new JObject() }
 		};
 	}
 
