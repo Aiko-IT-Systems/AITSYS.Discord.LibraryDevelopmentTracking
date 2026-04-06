@@ -5,6 +5,7 @@
 using Newtonsoft.Json;
 
 namespace AITSYS.Discord.LibraryDevelopmentTracking.Entities.Notion;
+
 public class NotionPageResult
 {
 	[JsonProperty("object", NullValueHandling = NullValueHandling.Ignore)]

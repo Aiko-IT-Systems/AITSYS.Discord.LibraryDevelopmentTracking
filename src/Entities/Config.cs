@@ -4,6 +4,8 @@
 
 using Newtonsoft.Json;
 
+namespace AITSYS.Discord.LibraryDevelopmentTracking.Entities;
+
 public class Config
 {
 	[JsonProperty("discord_config")]

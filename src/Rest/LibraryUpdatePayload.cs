@@ -16,13 +16,13 @@ public class LibraryUpdatePayload
 		[JsonProperty("Pull Request / Commit", NullValueHandling = NullValueHandling.Ignore)]
 		public PullRequestCommit PullRequestCommit { get; set; }
 
-		[JsonProperty("Status", NullValueHandling = NullValueHandling.Ignore)]
+		[JsonProperty(nameof(Status), NullValueHandling = NullValueHandling.Ignore)]
 		public Status Status { get; set; }
 
 		[JsonProperty("Released In Version", NullValueHandling = NullValueHandling.Ignore)]
 		public ReleasedInVersion ReleasedInVersion { get; set; }
 
-		[JsonProperty("Notes", NullValueHandling = NullValueHandling.Ignore)]
+		[JsonProperty(nameof(Notes), NullValueHandling = NullValueHandling.Ignore)]
 		public Notes Notes { get; set; }
 
 		[JsonProperty("Modified By", NullValueHandling = NullValueHandling.Ignore)]

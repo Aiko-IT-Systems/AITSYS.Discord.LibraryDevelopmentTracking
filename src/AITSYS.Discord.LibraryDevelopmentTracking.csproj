@@ -5,7 +5,7 @@
 		<TargetFramework>net9.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<NoWarn>DV2001;CS8618</NoWarn>
+		<NoWarn>DV2001;CS8618;CA1822</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>

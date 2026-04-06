@@ -247,19 +247,19 @@ public class NotionSearchDataSourceResult
 		[JsonProperty("Pull Request / Commit", NullValueHandling = NullValueHandling.Ignore)]
 		public PullRequestCommit PullRequestCommit { get; set; }
 
-		[JsonProperty("Language", NullValueHandling = NullValueHandling.Ignore)]
+		[JsonProperty(nameof(Language), NullValueHandling = NullValueHandling.Ignore)]
 		public Language Language { get; set; }
 
-		[JsonProperty("Status", NullValueHandling = NullValueHandling.Ignore)]
+		[JsonProperty(nameof(Status), NullValueHandling = NullValueHandling.Ignore)]
 		public Status Status { get; set; }
 
-		[JsonProperty("Notes", NullValueHandling = NullValueHandling.Ignore)]
+		[JsonProperty(nameof(Notes), NullValueHandling = NullValueHandling.Ignore)]
 		public Notes Notes { get; set; }
 
 		[JsonProperty("discord.builders Support", NullValueHandling = NullValueHandling.Ignore)]
 		public DiscordBuildersSupport DiscordBuildersSupport { get; set; }
 
-		[JsonProperty("ID", NullValueHandling = NullValueHandling.Ignore)]
+		[JsonProperty(nameof(ID), NullValueHandling = NullValueHandling.Ignore)]
 		public ID ID { get; set; }
 
 		[JsonProperty("Released In Version", NullValueHandling = NullValueHandling.Ignore)]
@@ -268,7 +268,7 @@ public class NotionSearchDataSourceResult
 		[JsonProperty("Modified By", NullValueHandling = NullValueHandling.Ignore)]
 		public ModifiedBy ModifiedBy { get; set; }
 
-		[JsonProperty("Library", NullValueHandling = NullValueHandling.Ignore)]
+		[JsonProperty(nameof(Library), NullValueHandling = NullValueHandling.Ignore)]
 		public Library Library { get; set; }
 	}
 

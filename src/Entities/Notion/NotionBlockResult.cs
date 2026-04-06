@@ -4,6 +4,8 @@
 
 using Newtonsoft.Json;
 
+namespace AITSYS.Discord.LibraryDevelopmentTracking.Entities.Notion;
+
 public class NotionBlockResult
 {
 	[JsonProperty("object", NullValueHandling = NullValueHandling.Ignore)]

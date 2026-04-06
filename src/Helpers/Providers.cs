@@ -16,12 +16,12 @@ public class NotionTrackingListProvider : IAutocompleteProvider
 
 		if (ctx.FocusedOption.Value is null || string.IsNullOrWhiteSpace(ctx.FocusedOption.Value.ToString()))
 		{
-			options = DiscordBot.Config.NotionConfig.ImplementationTrackingConfig.Select(x => new DiscordApplicationCommandAutocompleteChoice(x.Name, x.PageId)).Take(25);
+			options = DiscordBot.Configuration.NotionConfig.ImplementationTrackingConfig.Select(x => new DiscordApplicationCommandAutocompleteChoice(x.Name, x.PageId)).Take(25);
 			return Task.FromResult(options.AsEnumerable());
 		}
 
 		var search = ctx.FocusedOption.Value.ToString()!.ToLowerInvariant();
-		options = DiscordBot.Config.NotionConfig.ImplementationTrackingConfig
+		options = DiscordBot.Configuration.NotionConfig.ImplementationTrackingConfig
 			.Where(x => x.Name.Contains(search, StringComparison.InvariantCultureIgnoreCase))
 			.Select(x => new DiscordApplicationCommandAutocompleteChoice(x.Name, x.PageId))
 			.Take(25);
@@ -37,13 +37,13 @@ public class DiscordLibraryListProvider : IAutocompleteProvider
 
 		if (ctx.FocusedOption.Value is null || string.IsNullOrWhiteSpace(ctx.FocusedOption.Value.ToString()))
 		{
-			options = DiscordBot.Config.DiscordConfig.LibraryRoleMapping.Select(x => new DiscordApplicationCommandAutocompleteChoice(x.Value, x.Key.ToString())).Take(25);
+			options = DiscordBot.Configuration.DiscordConfig.LibraryRoleMapping.Select(x => new DiscordApplicationCommandAutocompleteChoice(x.Value, x.Key.ToString())).Take(25);
 			return Task.FromResult(options.AsEnumerable());
 		}
 		else
 		{
 			var search = ctx.FocusedOption.Value.ToString()!.ToLowerInvariant();
-			options = DiscordBot.Config.DiscordConfig.LibraryRoleMapping
+			options = DiscordBot.Configuration.DiscordConfig.LibraryRoleMapping
 				.Where(x => x.Value.Contains(search, StringComparison.InvariantCultureIgnoreCase))
 				.Select(x => new DiscordApplicationCommandAutocompleteChoice(x.Value, x.Key.ToString()))
 				.Take(25);

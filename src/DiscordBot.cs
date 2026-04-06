@@ -5,7 +5,7 @@
 using System.Net;
 
 using AITSYS.Discord.LibraryDevelopmentTracking.Commands;
-using AITSYS.Discord.LibraryDevelopmentTracking.Events;
+using AITSYS.Discord.LibraryDevelopmentTracking.Entities;
 using AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
 using AITSYS.Discord.LibraryDevelopmentTracking.Rest;
 
@@ -22,7 +22,7 @@ namespace AITSYS.Discord.LibraryDevelopmentTracking;
 
 public sealed class DiscordBot
 {
-	internal static Config Config { get; private set; }
+	internal static Config Configuration { get; private set; }
 
 	internal static NotionRestClient NotionRestClient { get; private set; }
 
@@ -38,12 +38,13 @@ public sealed class DiscordBot
 	public DiscordBot(Config config, bool useProxy = false)
 	{
 		ArgumentNullException.ThrowIfNull(config);
-		Config = config;
+		Configuration = config;
 		var proxy = useProxy ? new WebProxy("127.0.0.1", 8000) : null;
-		NotionRestClient = new NotionRestClient(Config.NotionConfig, proxy);
+		NotionRestClient = new NotionRestClient(Configuration.NotionConfig, proxy);
+#pragma warning disable DCS1201 // [DCS] Configuration property moved to nested config
 		this.DiscordClient = new DiscordClient(new DiscordConfiguration()
 		{
-			Token = Config.DiscordConfig.DiscordToken,
+			Token = Configuration.DiscordConfig.DiscordToken,
 			TokenType = TokenType.Bot,
 			Intents = DiscordIntents.AllUnprivileged | DiscordIntents.GuildMembers | DiscordIntents.MessageContent,
 			Api =
@@ -72,6 +73,7 @@ public sealed class DiscordBot
 			},
 			Proxy = proxy
 		});
+#pragma warning restore DCS1201 // [DCS] Configuration property moved to nested config
 		this.ApplicationCommandsExtension = this.DiscordClient.UseApplicationCommands(new()
 		{
 			EnableDefaultHelp = false,
@@ -93,11 +95,10 @@ public sealed class DiscordBot
 
 	public void Setup()
 	{
-		this.DiscordClient.ComponentInteractionCreated += Interactions.ComponentInteractionCreated;
-		this.DiscordClient.Ready += async (client, args) => _ = await client.Guilds[Config.DiscordConfig.DiscordGuild].GetAllMembersAsync();
-		this.ApplicationCommandsExtension.RegisterGlobalCommands<LibraryTracking>();
-		this.ApplicationCommandsExtension.RegisterGuildCommands<LibraryHouseKeeping>(1317206872763404478);
-		this.ApplicationCommandsExtension.RegisterGlobalCommands<Dev>();
+		this.DiscordClient.Ready += async (client, args) => _ = await client.Guilds[Configuration.DiscordConfig.DiscordGuild].GetAllMembersAsync();
+		this.ApplicationCommandsExtension.RegisterGlobalCommands<LibraryTrackingCommands>();
+		this.ApplicationCommandsExtension.RegisterGuildCommands<LibraryHouseKeepingCommands>(1317206872763404478);
+		this.ApplicationCommandsExtension.RegisterGlobalCommands<DevCommands>();
 	}
 
 	public async Task StartAsync()

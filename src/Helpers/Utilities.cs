@@ -2,6 +2,7 @@
 // Licensed under the AGPL-3.0-or-later
 // See <https://www.gnu.org/licenses/> for details.
 
+using AITSYS.Discord.LibraryDevelopmentTracking.Entities;
 using AITSYS.Discord.LibraryDevelopmentTracking.Entities.Notion;
 using AITSYS.Discord.LibraryDevelopmentTracking.Enums;
 
@@ -388,7 +389,7 @@ public static class Utilities
 		for (var i = 0; i <= maxCount; i++)
 			countTickGen.AddMajor(i, i.ToString());
 
-		statuses = statuses.Reverse().ToArray();
+		statuses = [.. statuses.Reverse()];
 		for (var i = 0; i < statuses.Length; i++)
 		{
 			var status = statuses[i];

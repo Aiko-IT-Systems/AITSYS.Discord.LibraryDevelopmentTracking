@@ -2,12 +2,6 @@
 // Licensed under the AGPL-3.0-or-later
 // See <https://www.gnu.org/licenses/> for details.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 using DisCatSharp;
 using DisCatSharp.ApplicationCommands.Context;
 using DisCatSharp.ApplicationCommands.Entities;

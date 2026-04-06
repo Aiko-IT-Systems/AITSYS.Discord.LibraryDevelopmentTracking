@@ -2,6 +2,8 @@
 // Licensed under the AGPL-3.0-or-later
 // See <https://www.gnu.org/licenses/> for details.
 
+using AITSYS.Discord.LibraryDevelopmentTracking.Entities;
+
 namespace AITSYS.Discord.LibraryDevelopmentTracking;
 
 internal class Program
@@ -16,14 +18,8 @@ internal class Program
 			Config? config;
 			try
 			{
-				// TODO: Fill out the config.json
-				// NOTE: This will only work for notion pages based on the following template: https://www.notion.so/marketplace/templates/discord-lib-devs-implementations-tracking
 				var configContent = File.ReadAllText("config.json");
-				config = Newtonsoft.Json.JsonConvert.DeserializeObject<Config>(configContent);
-				if (config == null)
-				{
-					throw new Exception("Failed to load configuration.");
-				}
+				config = Newtonsoft.Json.JsonConvert.DeserializeObject<Config>(configContent) ?? throw new Exception("Failed to load configuration.");
 			}
 			catch (Exception ex)
 			{
