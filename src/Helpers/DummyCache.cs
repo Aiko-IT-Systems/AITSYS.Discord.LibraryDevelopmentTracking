@@ -12,6 +12,7 @@ internal static class DummyCache
 	internal static async Task InitAsync()
 	{
 		var notion = DiscordBot.Config.NotionConfig.ImplementationTrackingConfig[0].PageId;
+		ArgumentNullException.ThrowIfNull(notion, nameof(notion));
 		Page = await DiscordBot.NotionRestClient.GetPageAsync(notion);
 		Block = await DiscordBot.NotionRestClient.GetBlockChildrenAsync(notion);
 		DataSource = await DiscordBot.NotionRestClient.GetDataSourceBySearchAsync(notion);

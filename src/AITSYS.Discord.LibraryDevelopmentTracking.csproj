@@ -1,20 +1,26 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
 		<TargetFramework>net9.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<NoWarn>DV2001;CS8618</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="ScottPlot" Version="5.1.57" />
-          <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.1" />
-	  <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.1" />
-	  <PackageReference Include="DisCatSharp" Version="10.7.0-nightly-056" />
-	  <PackageReference Include="DisCatSharp.ApplicationCommands" Version="10.7.0-nightly-056" />
-	  <PackageReference Include="DisCatSharp.Common" Version="10.7.0-nightly-056" />
-	  <PackageReference Include="DisCatSharp.Interactivity" Version="10.7.0-nightly-056" />
+		<PackageReference Include="DisCatSharp.Analyzer" Version="1.0.6">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="ScottPlot" Version="5.1.58" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.2" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.2" />
+		<PackageReference Include="DisCatSharp" Version="10.7.1-nightly-006" />
+		<PackageReference Include="DisCatSharp.ApplicationCommands" Version="10.7.1-nightly-006" />
+		<PackageReference Include="DisCatSharp.Common" Version="10.7.1-nightly-006" />
+		<PackageReference Include="DisCatSharp.Interactivity" Version="10.7.1-nightly-006" />
+		<PackageReference Include="System.Net.Security" Version="4.3.2" />
 	</ItemGroup>
 
 <Target Name="CopyFilesAfterPublish" AfterTargets="AfterPublish">
