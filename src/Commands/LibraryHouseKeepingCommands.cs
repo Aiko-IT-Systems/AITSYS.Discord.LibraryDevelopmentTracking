@@ -382,9 +382,9 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 	}
 
 	[SlashCommand("slap_library", "Slap a library")]
-	public async Task SlapLibraryAsync(InteractionContext ctx, [Autocomplete(typeof(DiscordLibraryListProvider)), Option("library", "The library to slap", true)] string library)
+	public async Task SlapLibraryAsync(InteractionContext ctx, [Autocomplete(typeof(DiscordLibraryListProvider)), Option("library", "The library to slap", true)] string library, [Option("ephemeral", "Whether to hide the output from public (only you can see it). Defaults to true.")] bool ephemeral = true)
 	{
-		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, ephemeral ? new DiscordInteractionResponseBuilder().AsEphemeral() : null);
 		try
 		{
 			if (!ulong.TryParse(library, out var libraryRoleId) || !DiscordBot.Configuration.DiscordConfig.LibraryRoleMapping.TryGetValue(libraryRoleId, out var libraryName) || libraryName is null)
@@ -432,7 +432,7 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 
 			if (pendingEntries.Count is 0)
 			{
-				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithAllowedMentions(Mentions.None).WithV2Components().AddComponents(new DiscordContainerComponent([
 					new DiscordTextDisplayComponent("All Caught Up! 🎉".Header2()),
 					new DiscordTextDisplayComponent($"<@&{libraryRoleId}> is fully up to date across all tracked notions.\nNothing to slap here — great work!")
 				], accentColor: DiscordColor.Green)));
