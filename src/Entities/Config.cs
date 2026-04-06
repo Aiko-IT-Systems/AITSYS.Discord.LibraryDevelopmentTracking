@@ -41,6 +41,9 @@ public class NotionConfig
 
 	[JsonProperty("notion_template_page_id")]
 	public string NotionTemplatePageId { get; set; }
+
+	[JsonProperty("notion_parent_page_id")]
+	public string NotionParentPageId { get; set; }
 }
 
 public class ImplementationTrackingConfig

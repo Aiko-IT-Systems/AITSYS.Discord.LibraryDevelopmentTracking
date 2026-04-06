@@ -249,4 +249,334 @@ public sealed class NotionRestClient
 		Console.WriteLine("Notion statistics retrieved");
 		return results;
 	}
+
+	/// <summary>
+	/// Creates a new page under the given parent page with a title and icon.
+	/// Returns the created page as a JObject.
+	/// </summary>
+	internal async Task<JObject> CreatePageAsync(string parentPageId, string title, string iconName = "burst", string iconColor = "pink")
+	{
+		Console.WriteLine($"Creating Notion page '{title}' under parent {parentPageId}");
+		var payload = new JObject
+		{
+			["parent"] = new JObject { ["page_id"] = parentPageId },
+			["icon"] = new JObject
+			{
+				["type"] = "icon",
+				["icon"] = new JObject { ["name"] = iconName, ["color"] = iconColor }
+			},
+			["properties"] = new JObject
+			{
+				["title"] = new JArray
+				{
+					new JObject
+					{
+						["text"] = new JObject { ["content"] = title }
+					}
+				}
+			}
+		};
+		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/pages", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
+		var content = await result.Content.ReadAsStringAsync();
+		Console.WriteLine($"Page created: {result.StatusCode}");
+		return JObject.Parse(content);
+	}
+
+	/// <summary>
+	/// Appends child blocks to a parent block or page.
+	/// Returns the response as a JObject.
+	/// </summary>
+	internal async Task<JObject> AppendBlockChildrenAsync(string blockId, JArray children)
+	{
+		Console.WriteLine($"Appending {children.Count} blocks to {blockId}");
+		var payload = new JObject { ["children"] = children };
+		var result = await this.HTTP_CLIENT.PatchAsync($"https://api.notion.com/v1/blocks/{blockId}/children", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
+		var content = await result.Content.ReadAsStringAsync();
+		Console.WriteLine($"Blocks appended: {result.StatusCode}");
+		return JObject.Parse(content);
+	}
+
+	/// <summary>
+	/// Creates a new database under the given parent (page or block).
+	/// Returns the created database as a JObject.
+	/// </summary>
+	internal async Task<JObject> CreateDatabaseAsync(string parentId, bool isPageParent, string title, JObject properties)
+	{
+		Console.WriteLine($"Creating database '{title}' under {(isPageParent ? "page" : "block")} {parentId}");
+		var parent = isPageParent
+			? new JObject { ["page_id"] = parentId }
+			: new JObject { ["block_id"] = parentId };
+		var payload = new JObject
+		{
+			["parent"] = parent,
+			["title"] = new JArray
+			{
+				new JObject
+				{
+					["type"] = "text",
+					["text"] = new JObject { ["content"] = title }
+				}
+			},
+			["is_inline"] = true,
+			["properties"] = properties
+		};
+		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/databases", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
+		var content = await result.Content.ReadAsStringAsync();
+		Console.WriteLine($"Database created: {result.StatusCode}");
+		return JObject.Parse(content);
+	}
+
+	/// <summary>
+	/// Creates a row in a data source (database).
+	/// </summary>
+	internal async Task<JObject> CreateDataSourceRowAsync(string dataSourceId, JObject properties)
+	{
+		Console.WriteLine($"Creating row in data source {dataSourceId}");
+		var payload = new JObject
+		{
+			["parent"] = new JObject { ["data_source_id"] = dataSourceId },
+			["properties"] = properties
+		};
+		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/pages", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
+		var content = await result.Content.ReadAsStringAsync();
+		Console.WriteLine($"Row created: {result.StatusCode}");
+		return JObject.Parse(content);
+	}
+
+	/// <summary>
+	/// Builds the Libraries database properties schema (matching the template).
+	/// </summary>
+	internal static JObject BuildLibrariesDatabaseSchema()
+	{
+		return new JObject
+		{
+			["Library"] = new JObject { ["title"] = new JObject() },
+			["Status"] = new JObject
+			{
+				["status"] = new JObject
+				{
+					["options"] = new JArray
+					{
+						new JObject { ["name"] = "Not Started", ["color"] = "red" },
+						new JObject { ["name"] = "In Progress", ["color"] = "orange" },
+						new JObject { ["name"] = "In Review", ["color"] = "blue" },
+						new JObject { ["name"] = "Ready For Release", ["color"] = "yellow" },
+						new JObject { ["name"] = "Released", ["color"] = "green" }
+					},
+					["groups"] = new JArray
+					{
+						new JObject
+						{
+							["name"] = "To-do",
+							["color"] = "gray",
+							["option_ids"] = new JArray()
+						},
+						new JObject
+						{
+							["name"] = "In progress",
+							["color"] = "blue",
+							["option_ids"] = new JArray()
+						},
+						new JObject
+						{
+							["name"] = "Complete",
+							["color"] = "green",
+							["option_ids"] = new JArray()
+						}
+					}
+				}
+			},
+			["Pull Request / Commit"] = new JObject { ["url"] = new JObject() },
+			["Language"] = new JObject { ["rich_text"] = new JObject() },
+			["Notes"] = new JObject { ["rich_text"] = new JObject() },
+			["discord.builders Support"] = new JObject { ["checkbox"] = new JObject() },
+			["Released In Version"] = new JObject { ["rich_text"] = new JObject() },
+			["Modified By"] = new JObject { ["rich_text"] = new JObject() }
+		};
+	}
+
+	/// <summary>
+	/// Builds the Status Meaning database properties schema.
+	/// </summary>
+	internal static JObject BuildStatusMeaningDatabaseSchema()
+	{
+		return new JObject
+		{
+			["Status"] = new JObject
+			{
+				["title"] = new JObject()
+			},
+			["Meaning"] = new JObject
+			{
+				["rich_text"] = new JObject()
+			}
+		};
+	}
+
+	/// <summary>
+	/// Builds the block children array for a new tracking notion page.
+	/// Returns (blocks array, explanation heading index, synced_block index) for database creation.
+	/// </summary>
+	internal static JArray BuildTrackingPageBlocks(string description)
+	{
+		return new JArray
+		{
+			// 1. Table of contents
+			new JObject
+			{
+				["object"] = "block",
+				["type"] = "table_of_contents",
+				["table_of_contents"] = new JObject { ["color"] = "gray" }
+			},
+			// 2. Description callout (💡)
+			new JObject
+			{
+				["object"] = "block",
+				["type"] = "callout",
+				["callout"] = new JObject
+				{
+					["rich_text"] = new JArray
+					{
+						new JObject
+						{
+							["type"] = "text",
+							["text"] = new JObject { ["content"] = description }
+						}
+					},
+					["icon"] = new JObject
+					{
+						["type"] = "emoji",
+						["emoji"] = "💡"
+					},
+					["color"] = "gray_background"
+				}
+			},
+			// 3. Info callout (use bot in CAP)
+			new JObject
+			{
+				["object"] = "block",
+				["type"] = "callout",
+				["callout"] = new JObject
+				{
+					["rich_text"] = new JArray
+					{
+						new JObject
+						{
+							["type"] = "text",
+							["text"] = new JObject { ["content"] = "For changes in the progress of your library, please use the " },
+							["annotations"] = new JObject { ["bold"] = true, ["color"] = "orange" }
+						},
+						new JObject
+						{
+							["type"] = "text",
+							["text"] = new JObject
+							{
+								["content"] = "Notion Tracking",
+								["link"] = new JObject { ["url"] = "https://canary.discord.com/channels/1317206872763404478/1378061729807728661/1415419148586188991" }
+							},
+							["annotations"] = new JObject { ["bold"] = true }
+						},
+						new JObject
+						{
+							["type"] = "text",
+							["text"] = new JObject { ["content"] = " bot in CAP" },
+							["annotations"] = new JObject { ["bold"] = true, ["color"] = "orange" }
+						}
+					},
+					["icon"] = new JObject
+					{
+						["type"] = "icon",
+						["icon"] = new JObject { ["name"] = "info-alternate", ["color"] = "blue" }
+					},
+					["color"] = "gray_background"
+				}
+			},
+			// 4. Divider
+			new JObject { ["object"] = "block", ["type"] = "divider", ["divider"] = new JObject() },
+			// 5. Explanation heading (toggleable)
+			new JObject
+			{
+				["object"] = "block",
+				["type"] = "heading_2",
+				["heading_2"] = new JObject
+				{
+					["rich_text"] = new JArray
+					{
+						new JObject
+						{
+							["type"] = "text",
+							["text"] = new JObject { ["content"] = "Explanation" }
+						}
+					},
+					["is_toggleable"] = true,
+					["color"] = "default_background"
+				}
+			},
+			// 6. Divider
+			new JObject { ["object"] = "block", ["type"] = "divider", ["divider"] = new JObject() },
+			// 7. Statistics heading (toggleable)
+			new JObject
+			{
+				["object"] = "block",
+				["type"] = "heading_2",
+				["heading_2"] = new JObject
+				{
+					["rich_text"] = new JArray
+					{
+						new JObject
+						{
+							["type"] = "text",
+							["text"] = new JObject { ["content"] = "Statistics" }
+						}
+					},
+					["is_toggleable"] = true,
+					["color"] = "default_background"
+				}
+			},
+			// 8. Divider
+			new JObject { ["object"] = "block", ["type"] = "divider", ["divider"] = new JObject() },
+			// 9. Synced block (source) — contains heading + database will be added after
+			new JObject
+			{
+				["object"] = "block",
+				["type"] = "synced_block",
+				["synced_block"] = new JObject
+				{
+					["synced_from"] = null,
+					["children"] = new JArray
+					{
+						new JObject
+						{
+							["object"] = "block",
+							["type"] = "heading_2",
+							["heading_2"] = new JObject
+							{
+								["rich_text"] = new JArray
+								{
+									new JObject
+									{
+										["type"] = "text",
+										["text"] = new JObject { ["content"] = "Implementation Status" }
+									}
+								},
+								["is_toggleable"] = false,
+								["color"] = "default"
+							}
+						}
+					}
+				}
+			},
+			// 10. Empty paragraph
+			new JObject
+			{
+				["object"] = "block",
+				["type"] = "paragraph",
+				["paragraph"] = new JObject
+				{
+					["rich_text"] = new JArray(),
+					["color"] = "default"
+				}
+			}
+		};
+	}
 }
