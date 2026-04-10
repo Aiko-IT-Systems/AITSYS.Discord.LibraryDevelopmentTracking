@@ -13,6 +13,7 @@ Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
 SyslogIdentifier=DiscordLibDevTracking
 Environment=DOTNET_ROOT=/usr/bin/dotnet
+Environment=SPIFFE_ENDPOINT_SOCKET=/run/spire/sockets/agent.sock
 
 [Install]
 WantedBy=multi-user.target
