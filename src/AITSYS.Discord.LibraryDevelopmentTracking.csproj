@@ -29,6 +29,7 @@
 </Target>
 
 	<ItemGroup>
+  	<PackageReference Include="NuGet.Packaging" Version="7.3.1" />
 		<None Update="config.example.json">
 		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</None>
