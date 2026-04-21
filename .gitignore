@@ -108,3 +108,4 @@ $RECYCLE.BIN/
 *.txt
 
 config.json
+*.lscache
