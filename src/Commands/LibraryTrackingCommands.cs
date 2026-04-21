@@ -202,7 +202,7 @@ public class LibraryTrackingCommands : ApplicationCommandsModule
 			}
 
 			var container = new DiscordContainerComponent([.. components], accentColor: new DiscordColor("#8692FE"));
-			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container));
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container).WithAllowedMentions(Mentions.None));
 		}
 		catch (DisCatSharpException)
 		{
