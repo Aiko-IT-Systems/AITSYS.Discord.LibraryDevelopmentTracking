@@ -46,7 +46,7 @@ public sealed class DiscordBot
 		{
 			Token = Configuration.DiscordConfig.DiscordToken,
 			TokenType = TokenType.Bot,
-			Intents = DiscordIntents.AllUnprivileged | DiscordIntents.GuildMembers | DiscordIntents.MessageContent,
+			Intents = DiscordIntents.AllUnprivileged | DiscordIntents.GuildMembers,
 			Api =
 			{
 				Channel = ApiChannel.Canary
