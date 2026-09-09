@@ -90,14 +90,16 @@ public sealed class DiscordBot
 			AckPaginationButtons = true,
 			Timeout = TimeSpan.FromMinutes(5)
 		});
-		this.Setup();
+		this.Setup(config);
 	}
 
-	public void Setup()
+	public void Setup(Config config)
 	{
 		this.DiscordClient.Ready += async (client, args) => _ = await client.Guilds[Configuration.DiscordConfig.DiscordGuild].GetAllMembersAsync();
 		this.ApplicationCommandsExtension.RegisterGlobalCommands<LibraryTrackingCommands>();
 		this.ApplicationCommandsExtension.RegisterGuildCommands<LibraryHouseKeepingCommands>(1317206872763404478);
+		foreach (var guild in config.DiscordConfig.DiscordGuilds)
+			this.ApplicationCommandsExtension.RegisterGuildCommands<LibraryHouseKeepingCommands>(guild);
 		this.ApplicationCommandsExtension.RegisterGlobalCommands<DevCommands>();
 	}
 

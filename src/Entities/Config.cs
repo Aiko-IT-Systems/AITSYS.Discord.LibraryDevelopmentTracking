@@ -23,6 +23,9 @@ public class DiscordConfig
 	[JsonProperty("discord_guild")]
 	public ulong DiscordGuild { get; set; }
 
+	[JsonProperty("discord_guilds")]
+	public List<ulong> DiscordGuilds { get; set; }
+
 	[JsonProperty("library_developer_role_id")]
 	public ulong LibraryDeveloperRoleId { get; set; }
 
