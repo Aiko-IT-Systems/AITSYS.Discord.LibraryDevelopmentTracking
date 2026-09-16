@@ -487,12 +487,12 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 	{
 		var interactivity = ctx.Client.GetInteractivity();
 		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
-		var roleSelect = new DiscordRoleSelectComponent("Select the roles to assign to the user", minOptions: 0, maxOptions: 25);
+		var roleSelect = new DiscordRoleSelectComponent("Select the roles to assign to the user", customId: "role_select", minOptions: 0, maxOptions: 25);
 		var actionRow = new DiscordActionRowComponent([roleSelect]);
 		var actionRow2 = new DiscordActionRowComponent([new DiscordButtonComponent(ButtonStyle.Secondary, "skip_roles", "Skip role selection")]);
 		var container = new DiscordContainerComponent([new DiscordTextDisplayComponent($"Please select the roles to assign to {user.Mention()}."), actionRow, actionRow2], accentColor: DiscordColor.Blue);
 		var msg = await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container]));
-		var result = await interactivity.WaitForEventArgsAsync<ComponentInteractionCreateEventArgs>(pred => pred.Interaction.Data.ComponentType is ComponentType.RoleSelect or ComponentType.Button && pred.Interaction.User.Id == ctx.UserId && pred.Interaction.Data.CustomId is "skip_roles" or "role_select", TimeSpan.FromSeconds(30));
+		var result = await interactivity.WaitForEventArgsAsync<ComponentInteractionCreateEventArgs>(pred => pred.Message.Id == msg.Id && pred.Interaction.Data.ComponentType is ComponentType.RoleSelect or ComponentType.Button && pred.Interaction.User.Id == ctx.UserId && pred.Interaction.Data.CustomId is "skip_roles" or "role_select", TimeSpan.FromSeconds(30));
 		var processed = false;
 		if (result.TimedOut)
 		{
