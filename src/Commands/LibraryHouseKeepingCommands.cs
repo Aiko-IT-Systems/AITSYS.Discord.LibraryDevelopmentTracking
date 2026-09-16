@@ -492,7 +492,7 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 		var actionRow2 = new DiscordActionRowComponent([new DiscordButtonComponent(ButtonStyle.Secondary, "skip_roles", "Skip role selection")]);
 		var container = new DiscordContainerComponent([new DiscordTextDisplayComponent($"Please select the roles to assign to {user.Mention()}."), actionRow, actionRow2], accentColor: DiscordColor.Blue);
 		var msg = await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container]));
-		var result = await interactivity.WaitForEventArgsAsync<ComponentInteractionCreateEventArgs>(pred => pred.Message.Id == msg.Id && pred.Interaction.Data.ComponentType is ComponentType.RoleSelect or ComponentType.Button && pred.Interaction.User.Id == ctx.UserId && pred.Interaction.Data.CustomId is "skip_roles" or "role_select", TimeSpan.FromSeconds(30));
+		var result = await interactivity.WaitForEventArgsAsync<ComponentInteractionCreateEventArgs>(pred => pred.Interaction.Data.ComponentType is ComponentType.RoleSelect or ComponentType.Button && pred.Interaction.User.Id == ctx.UserId && pred.Interaction.Data.CustomId is "skip_roles" or "role_select", TimeSpan.FromSeconds(30));
 		var processed = false;
 		if (result.TimedOut)
 		{
@@ -500,10 +500,10 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 		}
 		else
 		{
-			if (result.Result.Interaction.Data.CustomId is "skip_roles")
+			var interaction = result.Result.Interaction;
+			await interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+			if (interaction.Data.CustomId is "skip_roles")
 			{
-				var interaction = result.Result.Interaction;
-				await interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
 				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container.AddComponent(new DiscordTextDisplayComponent("Creating invite.."))]).DisableAllComponents());
 				var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, targetUserIds: [user.Id]);
 				while (!processed)
@@ -525,8 +525,6 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 			}
 			else
 			{
-				var interaction = result.Result.Interaction;
-				await interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
 				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container.AddComponent(new DiscordTextDisplayComponent("Creating invite.."))]).DisableAllComponents());
 				var selectedRoleIds = result.Result.Values.Select(x => Convert.ToUInt64(x));
 				var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, roleIds: [.. selectedRoleIds], targetUserIds: [user.Id]);
