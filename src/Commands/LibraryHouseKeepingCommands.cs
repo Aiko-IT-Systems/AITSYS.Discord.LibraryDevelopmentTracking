@@ -555,8 +555,8 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 	public async Task InviteUsersAsync(InteractionContext ctx)
 	{
 		var interactivity = ctx.Client.GetInteractivity();
-		
-		var modalBuilder = new DiscordInteractionModalBuilder("Library Status Update");
+
+		var modalBuilder = new DiscordInteractionModalBuilder("Locked invite creation");
 		modalBuilder.AddTextDisplayComponent(new($"You can create an invite bound to a bunch of people here."));
 		modalBuilder.AddLabelComponent(new("User IDs", "The user IDs to invite. One ID per line.", new DiscordTextInputComponent(TextComponentStyle.Paragraph, customId: "user_ids", minLength: 12, maxLength: 4000)));
 		modalBuilder.AddLabelComponent(new("Roles", "Optional roles to assign", new DiscordRoleSelectComponent("No roles selected", "roles", 0, 5, required: false)));
