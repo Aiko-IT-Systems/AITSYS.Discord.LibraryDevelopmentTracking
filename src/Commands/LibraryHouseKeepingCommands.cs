@@ -594,7 +594,7 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 		}
 
 		var selectedRoleIds = roleSelectInput?.Select(x => Convert.ToUInt64(x));
-		var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, roleIds: selectedRoleIds);
+		var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: userIds.Count, unique: true, roleIds: selectedRoleIds);
 		await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Locking invite to users..")], accentColor: DiscordColor.Blue)).WithAllowedMentions(Mentions.None));
 		try
 		{
