@@ -2,6 +2,9 @@
 // Licensed under the AGPL-3.0-or-later
 // See <https://www.gnu.org/licenses/> for details.
 
+using System.ComponentModel;
+using System.Diagnostics;
+
 using AITSYS.Discord.LibraryDevelopmentTracking.Entities;
 using AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
 
@@ -11,6 +14,7 @@ using DisCatSharp.ApplicationCommands.Attributes;
 using DisCatSharp.ApplicationCommands.Context;
 using DisCatSharp.Entities;
 using DisCatSharp.Enums;
+using DisCatSharp.EventArgs;
 using DisCatSharp.Exceptions;
 using DisCatSharp.Interactivity.Extensions;
 
@@ -485,54 +489,130 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
 		var roleSelect = new DiscordRoleSelectComponent("Select the roles to assign to the user", minOptions: 0, maxOptions: 25);
 		var actionRow = new DiscordActionRowComponent([roleSelect]);
-		var container = new DiscordContainerComponent([new DiscordTextDisplayComponent($"Please select the roles to assign to {user.Mention()}.\nDon't select anything for 20 seconds to skip roles."), actionRow], accentColor: DiscordColor.Blue);
+		var actionRow2 = new DiscordActionRowComponent([new DiscordButtonComponent(ButtonStyle.Secondary, "skip_roles", "Skip role selection")]);
+		var container = new DiscordContainerComponent([new DiscordTextDisplayComponent($"Please select the roles to assign to {user.Mention()}."), actionRow, actionRow2], accentColor: DiscordColor.Blue);
 		var msg = await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container]));
-		var result = await interactivity.WaitForSelectAsync(msg, roleSelect.CustomId!, ComponentType.RoleSelect, TimeSpan.FromSeconds(20));
+		var result = await interactivity.WaitForEventArgsAsync<ComponentInteractionCreateEventArgs>(pred => pred.Message.Id == msg.Id && pred.Interaction.Data.ComponentType is ComponentType.RoleSelect or ComponentType.Button && pred.Interaction.User.Id == ctx.UserId && pred.Interaction.Data.CustomId is "skip_roles" or "role_select", TimeSpan.FromSeconds(30));
 		var processed = false;
 		if (result.TimedOut)
 		{
-			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container.AddComponent(new DiscordTextDisplayComponent("Creating invite.."))]).DisableAllComponents());
-			var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, targetUserIds: [user.Id]);
-			while (!processed)
-			{
-				var jobStatus = await ctx.Client.GetInviteTargetUsersJobStatusAsync(invite.Code);
-				if (jobStatus.Status is InviteTargetUsersJobStatus.Completed)
-				{
-					processed = true;
-					break;
-				}
-				else if (jobStatus.Status is InviteTargetUsersJobStatus.Failed)
-				{
-					await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create an invite for {user.Mention()}: {jobStatus.ErrorMessage!.BlockCode("json")}.")], accentColor: DiscordColor.Red)).WithAllowedMentions(Mentions.None));
-					return;
-				}
-				await Task.Delay(5000);
-			}
-			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"You did not select any roles for {user.Mention()}.\nHere is their invite link: {invite.Url}")], accentColor: DiscordColor.Yellow)).WithAllowedMentions(Mentions.None));
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Interaction timed out.")], accentColor: DiscordColor.Yellow)).WithAllowedMentions(Mentions.None));
 		}
 		else
 		{
-			var interaction = result.Result.Interaction;
-			await interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
-			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container.AddComponent(new DiscordTextDisplayComponent("Creating invite.."))]).DisableAllComponents());
-			var selectedRoleIds = result.Result.Values.Select(x => Convert.ToUInt64(x));
-			var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, roleIds: [.. selectedRoleIds], targetUserIds: [user.Id]);
-			while (!processed)
+			if (result.Result.Interaction.Data.CustomId is "skip_roles")
 			{
-				var jobStatus = await ctx.Client.GetInviteTargetUsersJobStatusAsync(invite.Code);
-				if (jobStatus.Status is InviteTargetUsersJobStatus.Completed)
+				var interaction = result.Result.Interaction;
+				await interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container.AddComponent(new DiscordTextDisplayComponent("Creating invite.."))]).DisableAllComponents());
+				var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, targetUserIds: [user.Id]);
+				while (!processed)
 				{
-					processed = true;
-					break;
+					var jobStatus = await ctx.Client.GetInviteTargetUsersJobStatusAsync(invite.Code);
+					if (jobStatus.Status is InviteTargetUsersJobStatus.Completed)
+					{
+						processed = true;
+						break;
+					}
+					else if (jobStatus.Status is InviteTargetUsersJobStatus.Failed)
+					{
+						await interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create an invite for {user.Mention()}: {jobStatus.ErrorMessage!.BlockCode("json")}.")], accentColor: DiscordColor.Red)).WithAllowedMentions(Mentions.None));
+						return;
+					}
+					await Task.Delay(5000);
 				}
-				else if (jobStatus.Status is InviteTargetUsersJobStatus.Failed)
-				{
-					await interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create an invite for {user.Mention()}: {jobStatus.ErrorMessage!.BlockCode("json")}.")], accentColor: DiscordColor.Red)).WithAllowedMentions(Mentions.None));
-					return;
-				}
-				await Task.Delay(5000);
+				await interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Here is their invite link: {invite.Url}")], accentColor: DiscordColor.Green)).WithAllowedMentions(Mentions.None));
 			}
-			await interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"You have selected the roles <@&{string.Join(">, <@&", selectedRoleIds)}>\nHere is their invite link: {invite.Url}")], accentColor: DiscordColor.Green)).WithAllowedMentions(Mentions.None));
+			else
+			{
+				var interaction = result.Result.Interaction;
+				await interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container.AddComponent(new DiscordTextDisplayComponent("Creating invite.."))]).DisableAllComponents());
+				var selectedRoleIds = result.Result.Values.Select(x => Convert.ToUInt64(x));
+				var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, roleIds: [.. selectedRoleIds], targetUserIds: [user.Id]);
+				while (!processed)
+				{
+					var jobStatus = await ctx.Client.GetInviteTargetUsersJobStatusAsync(invite.Code);
+					if (jobStatus.Status is InviteTargetUsersJobStatus.Completed)
+					{
+						processed = true;
+						break;
+					}
+					else if (jobStatus.Status is InviteTargetUsersJobStatus.Failed)
+					{
+						await interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to create an invite for {user.Mention()}: {jobStatus.ErrorMessage!.BlockCode("json")}.")], accentColor: DiscordColor.Red)).WithAllowedMentions(Mentions.None));
+						return;
+					}
+					await Task.Delay(5000);
+				}
+				await interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"You have selected the roles <@&{string.Join(">, <@&", selectedRoleIds)}>\nHere is their invite link: {invite.Url}")], accentColor: DiscordColor.Green)).WithAllowedMentions(Mentions.None));
+			}
 		}
+
+	}
+
+	[SlashCommand("invite_users_bulk", "Invite multiple users")]
+	public async Task InviteUsersAsync(InteractionContext ctx)
+	{
+		var interactivity = ctx.Client.GetInteractivity();
+		
+		var modalBuilder = new DiscordInteractionModalBuilder("Library Status Update");
+		modalBuilder.AddTextDisplayComponent(new($"You can create an invite bound to a bunch of people here."));
+		modalBuilder.AddLabelComponent(new("User IDs", "The user IDs to invite. One ID per line.", new DiscordTextInputComponent(TextComponentStyle.Paragraph, customId: "user_ids", minLength: 12, maxLength: 4000)));
+		modalBuilder.AddLabelComponent(new("Roles", "Optional roles to assign", new DiscordRoleSelectComponent("No roles selected", "roles", 0, 5, required: false)));
+		await ctx.CreateModalResponseAsync(modalBuilder);
+
+		var modalResult = await interactivity.WaitForModalAsync(modalBuilder.CustomId);
+		if (modalResult.TimedOut)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("You took too long to respond. Please try again.")], accentColor: DiscordColor.Red)));
+			return;
+		}
+
+		await modalResult.Result.Interaction.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Creating invite..")], accentColor: DiscordColor.Yellow)).WithAllowedMentions(Mentions.None));
+
+		var modalComponents = modalResult.Result.Interaction.Data.ModalComponents;
+		var userIdsInput = (modalComponents
+			.OfType<DiscordLabelComponent>()
+			.FirstOrDefault(x => x.Component is DiscordTextInputComponent y && y.CustomId is "user_ids")?.Component as DiscordTextInputComponent)?.Value;
+		var roleSelectInput = (modalComponents
+			.OfType<DiscordLabelComponent>()
+			.FirstOrDefault(x => x.Component is DiscordRoleSelectComponent y && y.CustomId is "roles")?.Component as DiscordRoleSelectComponent)?.SelectedValues;
+
+		List<ulong> userIds = [];
+
+		var userIdLines = userIdsInput?.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+		foreach(var line in userIdLines ?? [])
+		{
+			if (ulong.TryParse(line.Trim(), out var userId))
+				userIds.Add(userId);
+			else
+			{
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Invalid user ID: {line}")], accentColor: DiscordColor.Red)).WithAllowedMentions(Mentions.None));
+				return;
+			}
+		}
+
+		var selectedRoleIds = roleSelectInput?.Select(x => Convert.ToUInt64(x));
+		var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, roleIds: selectedRoleIds);
+		await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Locking invite to users..")], accentColor: DiscordColor.Blue)).WithAllowedMentions(Mentions.None));
+		try
+		{
+			await invite.AddTargetUsersAsync(userIds);
+		}
+		catch (BadRequestException ex)
+		{
+			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to lock invite to users ({ex.Code}): {ex.JsonMessage?.BlockCode("json") ?? "Server did not respond with an error"}")], accentColor: DiscordColor.Red)).WithAllowedMentions(Mentions.None));
+			return;
+		}
+
+		var titleRow = new DiscordTextDisplayComponent($"Invite Created Successfully".Header2());
+		var userTitleRow = new DiscordTextDisplayComponent("This invite is locked to the following user IDs".Header3());
+		var userRow = new DiscordTextDisplayComponent(string.Join("\n", userIds.Select(x => x.ToString())).BlockCode());
+		var roleTitleRow = new DiscordTextDisplayComponent("The following roles are assigned to the invite".Header3());
+		var roleRow = new DiscordTextDisplayComponent(selectedRoleIds is not null && selectedRoleIds.Any() ? string.Join("\n", selectedRoleIds.Select(x => $"<@&{x}>")) : "No roles assigned");
+		var inviteRow = new DiscordTextDisplayComponent($"Here is the invite link: {invite.Url}");
+		var container = new DiscordContainerComponent([titleRow, new DiscordSeparatorComponent(false, SeparatorSpacingSize.Small), userTitleRow, userRow, new DiscordSeparatorComponent(false, SeparatorSpacingSize.Small), roleTitleRow, roleRow, new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large), inviteRow], accentColor: DiscordColor.Green);
+		await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container).WithAllowedMentions(Mentions.None));
 	}
 }
