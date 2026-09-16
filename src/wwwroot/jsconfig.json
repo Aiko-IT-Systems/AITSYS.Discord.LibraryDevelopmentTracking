@@ -1,0 +1,9 @@
+{
+	"compilerOptions": {
+		"checkJs": false
+	},
+	"exclude": [
+		"app.js",
+		"app.js.map"
+	]
+}

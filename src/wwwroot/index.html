@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+		<title>Discord Library Tracking</title>
+
+		<link rel="stylesheet" href="style.css?v=__ASSET_VERSION__" />
+		<link rel="icon" href="favicon.ico" />
+	</head>
+
+	<body class="auth-pending">
+		<!-- Existing Activity authentication can drive this shell. -->
+		<div id="authShell" class="auth-shell">
+			<div class="auth-card">
+				<div class="auth-logo">
+					<img src="discord.png" alt="" />
+				</div>
+
+				<div>
+					<h1>Library Development Tracking</h1>
+					<p id="authMessage">Connecting to Discord…</p>
+					<p id="authDetail" class="auth-detail hidden"></p>
+				</div>
+
+				<div class="auth-progress" aria-hidden="true">
+					<div id="authProgressBar" class="auth-progress-bar"></div>
+				</div>
+			</div>
+		</div>
+
+		<div id="appShell" class="app-shell hidden">
+			<!-- LEFT SIDEBAR -->
+			<aside class="sidebar">
+				<header class="sidebar-header">
+					<div class="app-icon">
+						<img src="discord.png" alt="" />
+					</div>
+
+					<div class="app-heading">
+						<strong>Library Tracking</strong>
+						<span>Discord Libraries</span>
+					</div>
+				</header>
+
+				<div class="sidebar-section">
+					<div class="sidebar-section-heading">
+						<span>Notions</span>
+
+						<button
+							id="refreshNotionsButton"
+							class="icon-button"
+							type="button"
+							aria-label="Refresh"
+							title="Refresh"
+						>
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"
+								/>
+							</svg>
+						</button>
+					</div>
+
+					<nav
+						id="notionList"
+						class="notion-list"
+						aria-label="Tracked notions"
+					>
+						<!-- Loading examples -->
+						<div class="notion-skeleton"></div>
+						<div class="notion-skeleton"></div>
+						<div class="notion-skeleton"></div>
+					</nav>
+				</div>
+
+				<footer class="sidebar-footer">
+					<div id="viewer" class="viewer">
+						<img
+							id="viewerAvatar"
+							class="viewer-avatar hidden"
+							alt=""
+						/>
+
+						<div
+							id="viewerAvatarFallback"
+							class="viewer-avatar viewer-avatar-fallback"
+						>
+							?
+						</div>
+
+						<div class="viewer-info">
+							<strong id="viewerName">Authenticating…</strong>
+							<span id="viewerMeta">Discord Activity</span>
+						</div>
+					</div>
+				</footer>
+			</aside>
+
+			<!-- MAIN CONTENT -->
+			<main class="main">
+				<!-- Empty state before notion selection -->
+				<section id="emptyState" class="empty-state hidden">
+					<div class="empty-icon">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M4 4h16v16H4z" />
+							<path d="M8 8h8M8 12h8M8 16h5" />
+						</svg>
+					</div>
+
+					<h1>Select a tracked notion</h1>
+					<p>
+						Choose a notion from the sidebar to view its
+						implementation statistics.
+					</p>
+				</section>
+
+				<!-- Dashboard -->
+				<div id="dashboard" class="dashboard hidden">
+					<header class="page-header">
+						<div class="page-title-block">
+							<div class="page-icon" id="notionIcon">📄</div>
+
+							<div>
+								<div class="page-overline">
+									Implementation tracking
+								</div>
+
+								<h1 id="notionTitle">File Upload Limits</h1>
+
+								<p
+									id="notionDescription"
+									class="page-description"
+								>
+									Support to limit file upload modal
+									components by type.
+								</p>
+							</div>
+						</div>
+
+						<div class="page-actions">
+							<div id="syncState" class="sync-state">
+								<span class="status-dot"></span>
+								<span>Up to date</span>
+							</div>
+
+							<button
+								id="openNotionButton"
+								class="button button-secondary"
+								type="button"
+							>
+								Open in Notion
+							</button>
+
+							<button
+								id="shareActivityButton"
+								class="button button-secondary"
+								type="button"
+								disabled
+							>
+								Share Activity
+							</button>
+						</div>
+					</header>
+
+					<!-- STATUS OVERVIEW -->
+					<section
+						class="stats-overview"
+						aria-label="Implementation status"
+					>
+						<div class="metric">
+							<span class="metric-label">Not Started</span>
+							<strong id="statusNotStarted" class="metric-value"
+								>0</strong
+							>
+							<span
+								id="statusNotStartedPercentage"
+								class="metric-meta"
+								>0%</span
+							>
+						</div>
+
+						<div class="metric">
+							<span class="metric-label">In Progress</span>
+							<strong id="statusInProgress" class="metric-value"
+								>0</strong
+							>
+							<span
+								id="statusInProgressPercentage"
+								class="metric-meta"
+								>0%</span
+							>
+						</div>
+
+						<div class="metric">
+							<span class="metric-label">In Review</span>
+							<strong id="statusInReview" class="metric-value"
+								>0</strong
+							>
+							<span
+								id="statusInReviewPercentage"
+								class="metric-meta"
+								>0%</span
+							>
+						</div>
+
+						<div class="metric">
+							<span class="metric-label">Ready for Release</span>
+							<strong id="statusReady" class="metric-value"
+								>0</strong
+							>
+							<span id="statusReadyPercentage" class="metric-meta"
+								>0%</span
+							>
+						</div>
+
+						<div class="metric">
+							<span class="metric-label">Released</span>
+							<strong id="statusReleased" class="metric-value"
+								>0</strong
+							>
+							<span
+								id="statusReleasedPercentage"
+								class="metric-meta"
+								>0%</span
+							>
+						</div>
+					</section>
+
+					<!-- CHARTS -->
+					<section class="chart-grid">
+						<article class="panel">
+							<header class="panel-header">
+								<div>
+									<h2>Implementation status</h2>
+									<p>
+										Current progress across tracked
+										libraries
+									</p>
+								</div>
+
+								<button
+									id="shareStatusChartButton"
+									class="button button-secondary panel-action"
+									type="button"
+									disabled
+								>
+									Share image
+								</button>
+							</header>
+
+							<div
+								class="chart-container chart-container-doughnut"
+							>
+								<canvas id="statusChart"></canvas>
+							</div>
+						</article>
+
+						<article class="panel">
+							<header class="panel-header">
+								<div>
+									<h2>Language support</h2>
+									<p>
+										Implementation status grouped by
+										language
+									</p>
+								</div>
+
+								<button
+									id="shareLanguageChartButton"
+									class="button button-secondary panel-action"
+									type="button"
+									disabled
+								>
+									Share image
+								</button>
+							</header>
+
+							<div class="chart-container">
+								<canvas id="languageChart"></canvas>
+							</div>
+						</article>
+					</section>
+
+					<!-- TABLE -->
+					<section class="panel libraries-panel">
+						<header class="panel-header">
+							<div>
+								<h2>Libraries</h2>
+								<p>Implementation state for this notion</p>
+							</div>
+
+							<span id="libraryCount" class="count-badge">
+								0 libraries
+							</span>
+						</header>
+
+						<div class="table-scroll">
+							<table class="library-table">
+								<thead>
+									<tr>
+										<th>Library</th>
+										<th>Language</th>
+										<th>Status</th>
+										<th>Version</th>
+										<th>Implementation</th>
+									</tr>
+								</thead>
+
+								<tbody id="libraryTableBody"></tbody>
+							</table>
+						</div>
+					</section>
+				</div>
+
+				<!-- Loading overlay -->
+				<div id="loadingState" class="loading-state hidden">
+					<div class="spinner"></div>
+					<span>Loading notion data…</span>
+				</div>
+
+				<!-- Error banner -->
+				<div id="errorBanner" class="error-banner hidden" role="alert">
+					<strong id="errorTitle">Something went wrong</strong>
+					<span id="errorMessage"></span>
+				</div>
+			</main>
+		</div>
+
+		<script src="app.js?v=__ASSET_VERSION__"></script>
+	</body>
+</html>

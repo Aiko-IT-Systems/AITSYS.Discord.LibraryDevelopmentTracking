@@ -1,0 +1,40 @@
+services:
+  activity:
+    image: ghcr.io/aiko-it-systems/aitsys.discord.librarydevelopmenttracking:dev
+    build:
+      context: src/
+      dockerfile: Dockerfile
+      args:
+        BUILD_CONFIGURATION: Debug
+    container_name: discord-libdev-tracking
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:6975
+      TZ: ${TZ:-UTC}
+    hostname: discord-libdev-tracking
+    networks:
+      discord-tools-network:
+        aliases:
+          - discord-libdev-tracking
+    ports:
+      - "${ACTIVITY_PORT:-6975}:6975"
+    volumes:
+      - ./src/config.json:/app/config.json
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:6975/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  discord-tools-network:
+    driver: bridge
+    name: discord-tools-network

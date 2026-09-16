@@ -109,3 +109,6 @@ $RECYCLE.BIN/
 
 config.json
 *.lscache
+**/node_modules/**
+src/wwwroot/app.js
+src/wwwroot/app.js.map

@@ -31,6 +31,33 @@ public class DiscordConfig
 
 	[JsonProperty("library_role_mapping")]
 	public Dictionary<ulong, string> LibraryRoleMapping { get; set; }
+
+	[JsonProperty("discord_client_secret")]
+	public string DiscordClientSecret { get; set; }
+
+	[JsonProperty("discord_public_key")]
+	public string DiscordPublicKey { get; set; }
+
+	[JsonProperty("port")]
+	public int Port { get; set; }
+
+	[JsonProperty("public_host")]
+	public string PublicHost { get; set; }
+
+	[JsonProperty("allow_local_dev")]
+	public bool AllowLocalDev { get; set; }
+
+	[JsonProperty("enable_whitelist")]
+	public bool EnableWhitelist { get; set; }
+
+	[JsonProperty("allowed_user_ids")]
+	public List<ulong> AllowedUserIds { get; set; } = [];
+
+	[JsonProperty("allowed_guild_ids")]
+	public List<ulong> AllowedGuildIds { get; set; } = [];
+
+	[JsonProperty("session_ttl_minutes")]
+	public int SessionTtlMinutes { get; set; }
 }
 
 public class NotionConfig

@@ -235,7 +235,7 @@ public sealed class NotionRestClient
 		return JsonConvert.SerializeObject(JsonConvert.DeserializeObject(res), Formatting.Indented);
 	}
 
-	internal async Task<Dictionary<string, List<NotionDataSourceQueryResult.Result>>> GetStatisticInfosAsync(string notion, IEnumerable<string> statuses, (string StatusId, string LanguageId) ids)
+	internal async Task<Dictionary<string, List<NotionDataSourceQueryResult.Result>>> GetStatisticInfosAsync(string notion, IEnumerable<string> statuses)
 	{
 		Console.WriteLine($"Getting Notion statistics for notion page ID {notion}");
 		var targetDataSource = this.CONFIG.ImplementationTrackingConfig.FirstOrDefault(x => x.PageId.Equals(notion, StringComparison.InvariantCultureIgnoreCase))?.DataSourceId;
@@ -256,7 +256,7 @@ public sealed class NotionRestClient
 				}}
 			}}";
 
-			var result = await this.HTTP_CLIENT.PostAsync($"https://api.notion.com/v1/data_sources/{targetDataSource}/query?filter_properties={ids.StatusId}&filter_properties={ids.LanguageId}", new StringContent(payload, Encoding.UTF8, "application/json"));
+			var result = await this.HTTP_CLIENT.PostAsync($"https://api.notion.com/v1/data_sources/{targetDataSource}/query", new StringContent(payload, Encoding.UTF8, "application/json"));
 			var content = await result.Content.ReadAsStringAsync();
 			var res = JsonConvert.DeserializeObject<NotionDataSourceQueryResult>(content);
 			results[status] = res!.Results;

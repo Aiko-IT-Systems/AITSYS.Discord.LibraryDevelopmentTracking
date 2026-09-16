@@ -10,7 +10,7 @@ internal class Program
 {
 	internal static CancellationTokenSource RestartLock = new();
 
-	static void Main(string[] args)
+	static async Task Main(string[] args)
 	{
 		Console.WriteLine("Hello, World!");
 		while (!RestartLock.IsCancellationRequested)
@@ -18,7 +18,7 @@ internal class Program
 			Config? config;
 			try
 			{
-				var configContent = File.ReadAllText("config.json");
+				var configContent = await File.ReadAllTextAsync("config.json");
 				config = Newtonsoft.Json.JsonConvert.DeserializeObject<Config>(configContent) ?? throw new Exception("Failed to load configuration.");
 			}
 			catch (Exception ex)
@@ -28,11 +28,11 @@ internal class Program
 			}
 
 #if DEBUG
-			DiscordBot bot = new(config, true);
+			DiscordBot bot = new(config, false);
 #else
 			DiscordBot bot = new(config, false);
 #endif
-			bot.StartAsync().GetAwaiter().GetResult();
+			await bot.StartAsync();
 			if (!RestartLock.IsCancellationRequested)
 				Console.WriteLine("Restarting bot...");
 		}

@@ -2,9 +2,6 @@
 // Licensed under the AGPL-3.0-or-later
 // See <https://www.gnu.org/licenses/> for details.
 
-using System.ComponentModel;
-using System.Diagnostics;
-
 using AITSYS.Discord.LibraryDevelopmentTracking.Entities;
 using AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
 
@@ -580,7 +577,7 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 		List<ulong> userIds = [];
 
 		var userIdLines = userIdsInput?.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
-		foreach(var line in userIdLines ?? [])
+		foreach (var line in userIdLines ?? [])
 		{
 			if (ulong.TryParse(line.Trim(), out var userId))
 				userIds.Add(userId);

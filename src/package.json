@@ -1,0 +1,17 @@
+{
+	"name": "translation-tool",
+	"private": true,
+	"dependencies": {
+		"@discord/embedded-app-sdk": "2.5.0",
+		"chart.js": "4.5.1"
+	},
+	"devDependencies": {
+		"esbuild": "0.28.1",
+		"eslint": "10.10.0",
+		"typescript": "5.9.3"
+	},
+	"scripts": {
+		"build": "esbuild wwwroot/app.ts --bundle --format=iife --platform=browser --target=es2022 --sourcemap --minify --outfile=wwwroot/app.js",
+		"build:dev": "esbuild wwwroot/app.ts --bundle --format=iife --platform=browser --target=es2022 --sourcemap --outfile=wwwroot/app.js"
+	}
+}
