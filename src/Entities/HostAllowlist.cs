@@ -28,7 +28,7 @@ internal static class HostAllowlist
 		"localhost"
 	};
 
-	internal static async Task<(bool IsAllowed, string FailureReason)> IsAllowedAsync(HttpRequest request, Config config, ActivityAuthService auth)
+	internal static async Task<(bool IsAllowed, string FailureReason)> IsAllowedAsync(HttpRequest request, Config config, ActivityAuthService auth, bool proxyAuthSuccess)
 	{
 		var host = request.Host.Host;
 		if (string.IsNullOrWhiteSpace(host))
@@ -49,14 +49,19 @@ internal static class HostAllowlist
 		if (!string.Equals(cfWorker, DiscordWorkerName, StringComparison.OrdinalIgnoreCase))
 			return (false, $"Cf-Worker was '{cfWorker}', expected '{DiscordWorkerName}'.");
 
-		if (!TryGetRefererHost(request, out var refererHost))
+		if (!proxyAuthSuccess)
+		{
+			if (!TryGetRefererHost(request, out var refererHost))
 			return (false, "Request did not include a valid Referer host.");
 
-		var activityHost = await auth.GetDiscordActivityHostAsync();
-		if (string.Equals(refererHost, activityHost, StringComparison.OrdinalIgnoreCase) || IsDiscordEntryRequest(request, refererHost))
-			return (true, string.Empty);
+			var activityHost = await auth.GetDiscordActivityHostAsync();
+			if (string.Equals(refererHost, activityHost, StringComparison.OrdinalIgnoreCase) || IsDiscordEntryRequest(request, refererHost))
+				return (true, string.Empty);
 
-		return (false, $"Referer host '{refererHost}' did not match the Discord activity host '{activityHost}' or an approved Discord entry host.");
+			return (false, $"Referer host '{refererHost}' did not match the Discord activity host '{activityHost}' or an approved Discord entry host.");
+		}
+		else
+			return (true, string.Empty);
 	}
 
 	private static bool TryGetRefererHost(HttpRequest request, out string? host)

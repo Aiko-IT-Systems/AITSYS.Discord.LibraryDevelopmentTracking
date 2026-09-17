@@ -164,6 +164,17 @@ public sealed class DiscordBot
 		this.WebApplication.Logger.LogInformation("Initialized activity services.");
 
 		this.WebApplication.UseForwardedHeaders();
+		this.WebApplication.UseDefaultFiles();
+		this.WebApplication.UseStaticFiles(new StaticFileOptions
+		{
+			OnPrepareResponse = context =>
+			{
+				var headers = context.Context.Response.Headers;
+				headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+				headers.Pragma = "no-cache";
+				headers.Expires = "0";
+			}
+		});
 		this.WebApplication.Use(async (context, next) =>
 		{
 			EnsureBootMarker(context, bootState);
@@ -171,32 +182,13 @@ public sealed class DiscordBot
 		});
 		this.WebApplication.Use(async (context, next) =>
 		{
-			var (isAllowed, hostFailureReason) = await HostAllowlist.IsAllowedAsync(context.Request, config, authService);
-			Console.WriteLine($"Attempted auth for activity. Result: {isAllowed} ({hostFailureReason})");
-			if (!IsAlwaysAnonymousStaticPath(context.Request.Path) && !isAllowed)
-			{
-				this.WebApplication.Logger.LogWarning("Rejected host for {Path}: {Reason}", context.Request.Path, hostFailureReason);
-				context.Response.StatusCode = StatusCodes.Status403Forbidden;
-				if (context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
-				{
-					await context.Response.WriteAsJsonAsync(new { message = "Access denied." });
-				}
-				else
-				{
-					await WriteErrorPageAsync(context, StatusCodes.Status403Forbidden, "Access denied", "You are not allowed to use the activity.");
-				}
-				return;
-			}
-
-			await next();
-		});
-		this.WebApplication.Use(async (context, next) =>
-		{
-			Console.WriteLine("Checking paths and request");
 			var anonymousPath = IsAlwaysAnonymousStaticPath(context.Request.Path);
 			var shouldValidate = DiscordProxyAuthentication.ShouldValidate(context.Request, config);
+			bool proxyAuthSuccess = false;
 
-			if (!anonymousPath && shouldValidate && !DiscordProxyAuthentication.ValidateProxyRequest(context.Request, config, out var failureReason))
+			Console.WriteLine("Checking paths and request");
+
+			if (!anonymousPath && shouldValidate && !DiscordProxyAuthentication.ValidateProxyRequest(context.Request, config, out var failureReason, out proxyAuthSuccess))
 			{
 				this.WebApplication.Logger.LogWarning("Rejected Discord proxy request for {Path}: {Reason}", context.Request.Path, failureReason);
 				context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -218,6 +210,23 @@ public sealed class DiscordBot
 					this.WebApplication.Logger.LogInformation("Allowing anonymous static path for {Path}", context.Request.Path);
 				else
 					this.WebApplication.Logger.LogInformation("Allowing non-anonymous path for {Path} without validation. This should not happen!", context.Request.Path);
+			}
+
+			var (isAllowed, hostFailureReason) = await HostAllowlist.IsAllowedAsync(context.Request, config, authService, proxyAuthSuccess);
+			Console.WriteLine($"Attempted auth for activity. Result: {isAllowed} ({hostFailureReason})");
+			if (!anonymousPath && !isAllowed)
+			{
+				this.WebApplication.Logger.LogWarning("Rejected host for {Path}: {Reason}", context.Request.Path, hostFailureReason);
+				context.Response.StatusCode = StatusCodes.Status403Forbidden;
+				if (context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+				{
+					await context.Response.WriteAsJsonAsync(new { message = "Access denied." });
+				}
+				else
+				{
+					await WriteErrorPageAsync(context, StatusCodes.Status403Forbidden, "Access denied", "You are not allowed to use the activity.");
+				}
+				return;
 			}
 
 			await next();
@@ -286,17 +295,6 @@ public sealed class DiscordBot
 			}
 
 			await next();
-		});
-		this.WebApplication.UseDefaultFiles();
-		this.WebApplication.UseStaticFiles(new StaticFileOptions
-		{
-			OnPrepareResponse = context =>
-			{
-				var headers = context.Context.Response.Headers;
-				headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
-				headers.Pragma = "no-cache";
-				headers.Expires = "0";
-			}
 		});
 
 		this.WebApplication.MapGet("/api/auth/config", async (HttpContext context, ActivityAuthService auth) =>
@@ -528,7 +526,9 @@ public sealed class DiscordBot
 
 	private static bool IsAlwaysAnonymousStaticPath(PathString path)
 		=> path.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase)
-			|| path.Equals("/discord.png", StringComparison.OrdinalIgnoreCase);
+			|| path.Equals("/discord.png", StringComparison.OrdinalIgnoreCase)
+			|| path.Equals("/style.css")
+			|| path.Equals("/app.js");
 
 	private static CookieOptions CreateSessionCookieOptions(TimeSpan ttl)
 		=> new()

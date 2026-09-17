@@ -17,7 +17,7 @@ internal static class DiscordProxyAuthentication
 		=> !HostAllowlist.IsLocalHost(request.Host.Host)
 			&& HostAllowlist.IsDiscordProxyHost(request.Host.Host, config);
 
-	internal static bool ValidateProxyRequest(HttpRequest request, Config config, out string failureReason)
+	internal static bool ValidateProxyRequest(HttpRequest request, Config config, out string failureReason, out bool success)
 	{
 		failureReason = string.Empty;
 
@@ -28,6 +28,7 @@ internal static class DiscordProxyAuthentication
 		if (string.IsNullOrWhiteSpace(config.DiscordConfig.DiscordPublicKey))
 		{
 			failureReason = "activity.discord_public_key is not configured.";
+			success = false;
 			return false;
 		}
 
@@ -36,6 +37,7 @@ internal static class DiscordProxyAuthentication
 			|| string.IsNullOrWhiteSpace(payloadHeader))
 		{
 			failureReason = "Missing Discord proxy authentication headers.";
+			success = false;
 			return false;
 		}
 
@@ -47,6 +49,7 @@ internal static class DiscordProxyAuthentication
 		catch (FormatException)
 		{
 			failureReason = "Discord proxy payload was not valid base64.";
+			success = false;
 			return false;
 		}
 
@@ -59,30 +62,35 @@ internal static class DiscordProxyAuthentication
 		catch (JsonException)
 		{
 			failureReason = "Discord proxy payload was not valid JSON.";
+			success = false;
 			return false;
 		}
 
 		if (!TryReadUnixTimestamp(payloadData, "created_at", out var createdAt))
 		{
 			failureReason = "Discord proxy payload is missing created_at.";
+			success = false;
 			return false;
 		}
 
 		if (!string.Equals(createdAt.ToString(), timestampHeader, StringComparison.Ordinal))
 		{
 			failureReason = "Discord proxy timestamp did not match the signed payload.";
+			success = false;
 			return false;
 		}
 
 		if (!TryReadUnixTimestamp(payloadData, "expires_at", out var expiresAt))
 		{
 			failureReason = "Discord proxy payload is missing expires_at.";
+			success = false;
 			return false;
 		}
 
 		if (expiresAt < DateTimeOffset.UtcNow.ToUnixTimeSeconds())
 		{
 			failureReason = "Discord proxy authentication token has expired.";
+			success = false;
 			return false;
 		}
 
@@ -94,15 +102,18 @@ internal static class DiscordProxyAuthentication
 		catch (FormatException)
 		{
 			failureReason = "Discord proxy signature was neither valid base64 nor hex.";
+			success = false;
 			return false;
 		}
 
 		if (!VerifyEd25519Signature(signatureBytes, payloadBytes, config.DiscordConfig.DiscordPublicKey))
 		{
 			failureReason = "Discord proxy signature verification failed.";
+			success = false;
 			return false;
 		}
-
+		
+		success = true;
 		return true;
 	}
 
