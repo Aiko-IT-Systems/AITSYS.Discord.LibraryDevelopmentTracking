@@ -590,56 +590,79 @@ public sealed class DiscordBot
 		context.Response.Headers.Pragma = "no-cache";
 		context.Response.Headers.Expires = "0";
 
+		var encodedTitle = System.Text.Encodings.Web.HtmlEncoder.Default.Encode(title);
+		var encodedMessage = System.Text.Encodings.Web.HtmlEncoder.Default.Encode(message);
 		var html = $$"""
 			<!DOCTYPE html>
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-				<title>{{title}}</title>
+				<title>{{encodedTitle}} · Library Tracking</title>
 				<style>
 					:root {
 						color-scheme: dark;
-						font-family: "Segoe UI", sans-serif;
+						font-family: Inter, "Segoe UI", system-ui, sans-serif;
 					}
+					* { box-sizing: border-box; }
 					body {
 						margin: 0;
 						min-height: 100vh;
 						display: flex;
 						align-items: center;
 						justify-content: center;
-						padding: 32px;
-						background: #0f172a;
-						color: #e5e7eb;
+						padding: 24px;
+						background: #2b2d31;
+						color: #f2f3f5;
 					}
 					.card {
-						width: min(560px, 100%);
-						background: #111827;
-						border: 1px solid #1f2937;
-						border-radius: 16px;
-						padding: 28px;
-						box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+						width: min(500px, 100%);
+						padding: 32px;
+						background: #313338;
+						border: 1px solid #3f4147;
+						border-radius: 12px;
+						box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+					}
+					.brand {
+						display: flex;
+						align-items: center;
+						gap: 12px;
+						margin-bottom: 28px;
+					}
+					.brand img {
+						width: 40px;
+						height: 40px;
+						border-radius: 10px;
+					}
+					.brand-copy {
+						display: grid;
+						gap: 2px;
+					}
+					.brand strong { font-size: 15px; }
+					.brand span {
+						color: #949ba4;
+						font-size: 13px;
 					}
 					.status {
 						display: inline-flex;
 						align-items: center;
-						padding: 6px 10px;
+						padding: 5px 9px;
 						border-radius: 999px;
-						border: 1px solid #f87171;
-						color: #f87171;
-						background: rgba(248, 113, 113, 0.12);
-						font-size: 13px;
+						color: #f0b232;
+						background: rgba(240, 178, 50, 0.12);
+						font-size: 12px;
 						font-weight: 700;
 						letter-spacing: 0.04em;
 						text-transform: uppercase;
 					}
 					h1 {
-						margin: 14px 0 12px;
-						font-size: 32px;
+						margin: 14px 0 10px;
+						font-size: clamp(26px, 7vw, 32px);
+						line-height: 1.15;
 					}
 					p {
 						margin: 0;
-						color: #9ca3af;
+						color: #b5bac1;
 						font-size: 16px;
 						line-height: 1.6;
 					}
@@ -647,9 +670,16 @@ public sealed class DiscordBot
 			</head>
 			<body>
 				<div class="card">
+					<div class="brand">
+						<img src="/discord.png" alt="" />
+						<div class="brand-copy">
+							<strong>Library Tracking</strong>
+							<span>Discord Developer Libraries</span>
+						</div>
+					</div>
 					<div class="status">{{statusCode}}</div>
-					<h1>{{title}}</h1>
-					<p>{{message}}</p>
+					<h1>{{encodedTitle}}</h1>
+					<p>{{encodedMessage}}</p>
 				</div>
 			</body>
 			</html>
