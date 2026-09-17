@@ -156,6 +156,7 @@ async function bootstrap() {
 		if (!config.localDevActive && config.activityRequired) {
 			await setActivityPresence({
 				activity: {
+					type: 0,
 					name: "Discord Library Development Tracking",
 					applicationId: "1413632025025314991",
 					state: "Loading tracked libraries and statistics",
@@ -318,6 +319,7 @@ async function renderDetails(notion: NotionDetails) {
 	if (!config.localDevActive && config.activityRequired) {
 		await setActivityPresence({
 			activity: {
+				type: 0,
 				name: "Discord Library Development Tracking",
 				applicationId: "1413632025025314991",
 				state: "Viewing library statistics for " + notion.title,

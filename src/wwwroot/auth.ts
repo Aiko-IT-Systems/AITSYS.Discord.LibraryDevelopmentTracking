@@ -7,7 +7,7 @@ import { Common, DiscordSDK } from "@discord/embedded-app-sdk";
  * This module only coordinates the embedded Discord SDK with those backend
  * endpoints and exposes shared authenticated request and external-link helpers.
  */
-const OAUTH_SCOPES = [Common.ScopesObject.identify, Common.ScopesObject.guilds, Common.ScopesObject["rpc.activities.write"]];
+const OAUTH_SCOPES = [Common.ScopesObject.identify, Common.ScopesObject.guilds]; //, Common.ScopesObject["rpc.activities.write"]];
 
 let cachedDiscordSdk: DiscordSDK | null = null;
 
@@ -231,6 +231,7 @@ export async function shareActivityLink(customId: string, message: string) {
  */
 export async function setActivityPresence(activity: {
 	activity: {
+		type: number;
 		name?: string;
 		applicationId?: string;
 		details?: string;
@@ -241,8 +242,8 @@ export async function setActivityPresence(activity: {
 			small_image?: string;
 			small_text?: string;
 		};
-		emoji: {
-			name: string;
+		emoji?: {
+			name?: string;
 			id?: string;
 		}
 	};
