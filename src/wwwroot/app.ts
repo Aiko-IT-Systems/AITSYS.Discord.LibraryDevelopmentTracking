@@ -5,6 +5,7 @@ import {
 	openActivityLink,
 	openActivityShareMoment,
 	shareActivityLink,
+	setActivityPresence,
 	type SessionResponse,
 	type ViewerIdentity,
 } from "./auth";
@@ -149,6 +150,21 @@ async function bootstrap() {
 		authShell.classList.add("hidden");
 		appShell.classList.remove("hidden");
 		refreshButton.addEventListener("click", () => void loadNotions(true));
+		await setActivityPresence({
+			activity: {
+				name: "Discord Library Development Tracking",
+				applicationId: "1413632025025314991",
+				state: "Loading tracked libraries and statistics",
+				details: "Viewing tracked libraries",
+				assets: {
+					large_image: "cap",
+					large_text: "CAP",
+					small_image: "discord",
+					small_text: "Discord",
+				},
+				emoji: { name: "CAPV2", id: "1342549467731333172" },
+			},
+		});
 		await loadNotions(false, await getIncomingCustomId(config));
 	} catch (error) {
 		setAuth(
@@ -204,7 +220,7 @@ async function selectNotion(id: string, refresh = false) {
 		const notion = await fetchJson<NotionDetails>(
 			`/api/tracking/notions/${encodeURIComponent(id)}${refresh ? "?refresh=true" : ""}`,
 		);
-		if (requestId === state.requestId) renderDetails(notion);
+		if (requestId === state.requestId) await renderDetails(notion);
 	} catch (error) {
 		if (requestId === state.requestId) {
 			showEmpty("This notion could not be loaded.");
@@ -253,7 +269,7 @@ function renderList() {
 	}
 }
 
-function renderDetails(notion: NotionDetails) {
+async function renderDetails(notion: NotionDetails) {
 	state.currentNotion = notion;
 	emptyState.classList.add("hidden");
 	dashboard.classList.remove("hidden");
@@ -292,6 +308,22 @@ function renderDetails(notion: NotionDetails) {
 			shareLanguageChartButton,
 		);
 	void provisionQuickLink(notion.id);
+
+	await setActivityPresence({
+		activity: {
+			name: "Discord Library Development Tracking",
+			applicationId: "1413632025025314991",
+			state: "Viewing library statistics for " + notion.title,
+			details: "Viewing tracked libraries",
+			assets: {
+				large_image: "cap",
+				large_text: "CAP",
+				small_image: "discord",
+				small_text: "Discord",
+			},
+			emoji: { name: "CAPV2", id: "1342549467731333172" },
+		},
+	});
 }
 
 function renderMetrics(counts: StatusCount[]) {
@@ -513,7 +545,10 @@ function drawImageContained(
 	maximumWidth: number,
 	maximumHeight: number,
 ) {
-	const scale = Math.min(maximumWidth / image.width, maximumHeight / image.height);
+	const scale = Math.min(
+		maximumWidth / image.width,
+		maximumHeight / image.height,
+	);
 	const width = Math.round(image.width * scale);
 	const height = Math.round(image.height * scale);
 	context.drawImage(

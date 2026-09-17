@@ -7,7 +7,7 @@ import { Common, DiscordSDK } from "@discord/embedded-app-sdk";
  * This module only coordinates the embedded Discord SDK with those backend
  * endpoints and exposes shared authenticated request and external-link helpers.
  */
-const OAUTH_SCOPES = [Common.ScopesObject.identify, Common.ScopesObject.guilds];
+const OAUTH_SCOPES = [Common.ScopesObject.identify, Common.ScopesObject.guilds, Common.ScopesObject["rpc.activities.write"]];
 
 let cachedDiscordSdk: DiscordSDK | null = null;
 
@@ -116,22 +116,6 @@ export async function getSession() {
 export async function logout() {
 	setCachedAccessToken(null);
 	await fetchJson("/api/auth/logout", { method: "POST" });
-}
-
-/**
- * Acknowledges that the current pending launch intent was applied, allowing the
- * backend to remove it when that endpoint is enabled.
- */
-export async function consumePendingIntent() {
-	try {
-		await fetchJson("/api/intent/consume", { method: "POST" });
-	} catch (error) {
-		if (error instanceof HttpError && error.status === 404) {
-			return;
-		}
-
-		throw error;
-	}
 }
 
 /**
@@ -245,6 +229,39 @@ export async function shareActivityLink(customId: string, message: string) {
 		message,
 		custom_id: customId,
 	});
+}
+
+/**
+ * Sets the activity presence for the Discord client.
+ * @param activity The activity object containing presence information.
+ */
+export async function setActivityPresence(activity: {
+	activity: {
+		name?: string;
+		applicationId?: string;
+		details?: string;
+		state?: string;
+		assets?: {
+			large_image?: string;
+			large_text?: string;
+			small_image?: string;
+			small_text?: string;
+		};
+		emoji: {
+			name: string;
+			id?: string;
+		}
+	};
+}) {
+	const config = await getAuthConfig();
+	if (config.localDevActive || !config.activityRequired) {
+		throw new Error(
+			"Activity presence can only be set inside the Discord Activity.",
+		);
+	}
+
+	const discordSdk = await getDiscordSdk(config.appId);
+	await discordSdk.commands.setActivity(activity);
 }
 
 /**
