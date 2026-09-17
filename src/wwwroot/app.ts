@@ -678,7 +678,9 @@ function populateViewer(viewer: ViewerIdentity, localDev: boolean) {
 	} else if (viewer.libraries !== undefined) {
 		let libraries: string;
 		viewer.libraries.forEach((library) => {
-			libraries = libraries + `\n<i>${library}</i>`;
+			if (library !== undefined && library !== "undefined") {
+				libraries = libraries + `<br/><i>${library}</i>`;
+			}
 		});
 		viewerLibrary.innerHTML = libraries;
 	} else {
