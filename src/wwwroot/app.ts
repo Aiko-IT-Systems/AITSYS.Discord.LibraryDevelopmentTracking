@@ -677,7 +677,7 @@ function populateViewer(viewer: ViewerIdentity, localDev: boolean) {
 	viewerType.textContent = localDev ? "Admin" : viewer.type;
 	if (localDev || viewer.type === "Admin" || viewer.type === "Employee") {
 		viewerLibrary.innerHTML = "<i>All</i>";
-	} else if (viewer.libraries !== undefined) {
+	} else if (viewer.libraries !== undefined && viewer.libraries != null && viewer.libraries.length > 0) {
 		let libraries: string = "";
 		let first = true;
 		viewer.libraries.forEach((library) => {
