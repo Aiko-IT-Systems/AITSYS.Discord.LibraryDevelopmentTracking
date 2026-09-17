@@ -677,9 +677,15 @@ function populateViewer(viewer: ViewerIdentity, localDev: boolean) {
 		viewerLibrary.innerHTML = "<i>All</i>";
 	} else if (viewer.libraries !== undefined) {
 		let libraries: string = "";
+		let first = true;
 		viewer.libraries.forEach((library) => {
 			if (library !== undefined && library !== "undefined") {
-				libraries = libraries + `<br/><i>${library}</i>`;
+				if (!first) {
+					libraries = libraries + ", "
+				} else {
+					first = false;
+				}
+				libraries = libraries + `${library}`;
 			}
 		});
 		viewerLibrary.innerHTML = libraries;

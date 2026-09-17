@@ -383,9 +383,8 @@ button {
 
 .viewer-access strong,
 .viewer-access span {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .viewer-access strong {
