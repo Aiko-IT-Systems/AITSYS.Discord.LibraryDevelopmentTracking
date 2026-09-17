@@ -5,7 +5,7 @@ services:
       context: src/
       dockerfile: Dockerfile
       args:
-        BUILD_CONFIGURATION: Debug
+        BUILD_CONFIGURATION: Release
     container_name: discord-libdev-tracking
     init: true
     restart: unless-stopped
