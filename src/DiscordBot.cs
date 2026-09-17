@@ -527,8 +527,7 @@ public sealed class DiscordBot
 	private static bool IsAlwaysAnonymousStaticPath(PathString path)
 		=> path.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase)
 			|| path.Equals("/discord.png", StringComparison.OrdinalIgnoreCase)
-			|| path.Equals("/style.css")
-			|| path.Equals("/app.js");
+			|| path.Equals("/style.css");
 
 	private static CookieOptions CreateSessionCookieOptions(TimeSpan ttl)
 		=> new()
