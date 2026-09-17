@@ -6,6 +6,7 @@
 			"ADDITIONAL_ALPHA_SERVER_ID"
 		],
 		"library_developer_role_id": "LIBRARY_DEVELOPER_ROLE_ID",
+		"bot_developer_role_id": "BOT_DEVELOPER_ROLE_ID",
 		"library_role_mapping": {
 			"ROLE_ID": "LIBRARY"
 		},

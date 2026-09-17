@@ -8,6 +8,7 @@ import {
 	setActivityPresence,
 	type SessionResponse,
 	type ViewerIdentity,
+	getAuthConfig,
 } from "./auth";
 
 import {
@@ -122,7 +123,9 @@ const refreshButton = el("refreshNotionsButton") as HTMLButtonElement,
 	viewerName = el("viewerName"),
 	viewerMeta = el("viewerMeta"),
 	viewerAvatar = el("viewerAvatar") as HTMLImageElement,
-	viewerFallback = el("viewerAvatarFallback");
+	viewerFallback = el("viewerAvatarFallback"),
+	viewerType = el("viewerType"),
+	viewerLibrary = el("viewerLibrary");
 const notionIcon = el("notionIcon"),
 	notionTitle = el("notionTitle"),
 	notionDescription = el("notionDescription"),
@@ -150,21 +153,23 @@ async function bootstrap() {
 		authShell.classList.add("hidden");
 		appShell.classList.remove("hidden");
 		refreshButton.addEventListener("click", () => void loadNotions(true));
-		await setActivityPresence({
-			activity: {
-				name: "Discord Library Development Tracking",
-				applicationId: "1413632025025314991",
-				state: "Loading tracked libraries and statistics",
-				details: "Viewing tracked libraries",
-				assets: {
-					large_image: "cap",
-					large_text: "CAP",
-					small_image: "discord",
-					small_text: "Discord",
+		if (!config.localDevActive && config.activityRequired) {
+			await setActivityPresence({
+				activity: {
+					name: "Discord Library Development Tracking",
+					applicationId: "1413632025025314991",
+					state: "Loading tracked libraries and statistics",
+					details: "Viewing tracked libraries",
+					assets: {
+						large_image: "cap",
+						large_text: "CAP",
+						small_image: "discord",
+						small_text: "Discord",
+					},
+					emoji: { name: "CAPV2", id: "1342549467731333172" },
 				},
-				emoji: { name: "CAPV2", id: "1342549467731333172" },
-			},
-		});
+			});
+		}
 		await loadNotions(false, await getIncomingCustomId(config));
 	} catch (error) {
 		setAuth(
@@ -309,21 +314,24 @@ async function renderDetails(notion: NotionDetails) {
 		);
 	void provisionQuickLink(notion.id);
 
-	await setActivityPresence({
-		activity: {
-			name: "Discord Library Development Tracking",
-			applicationId: "1413632025025314991",
-			state: "Viewing library statistics for " + notion.title,
-			details: "Viewing tracked libraries",
-			assets: {
-				large_image: "cap",
-				large_text: "CAP",
-				small_image: "discord",
-				small_text: "Discord",
+	const config = await getAuthConfig();
+	if (!config.localDevActive && config.activityRequired) {
+		await setActivityPresence({
+			activity: {
+				name: "Discord Library Development Tracking",
+				applicationId: "1413632025025314991",
+				state: "Viewing library statistics for " + notion.title,
+				details: "Viewing tracked libraries",
+				assets: {
+					large_image: "cap",
+					large_text: "CAP",
+					small_image: "discord",
+					small_text: "Discord",
+				},
+				emoji: { name: "CAPV2", id: "1342549467731333172" },
 			},
-			emoji: { name: "CAPV2", id: "1342549467731333172" },
-		},
-	});
+		});
+	}
 }
 
 function renderMetrics(counts: StatusCount[]) {
@@ -664,6 +672,18 @@ function populateViewer(viewer: ViewerIdentity, localDev: boolean) {
 		? `Local development • @${viewer.username}`
 		: `@${viewer.username}`;
 	viewerFallback.textContent = Array.from(name)[0]?.toUpperCase() || "?";
+	viewerType.textContent = localDev ? "Admin" : viewer.type;
+	if (localDev || viewer.type === "Admin" || viewer.type === "Employee") {
+		viewerLibrary.innerHTML = "<i>All</i>";
+	} else if (viewer.libraries !== undefined) {
+		let libraries: string;
+		viewer.libraries.forEach((library) => {
+			libraries = libraries + `\n<i>${library}</i>`;
+		});
+		viewerLibrary.innerHTML = libraries;
+	} else {
+		viewerLibrary.innerHTML = "<i>None</i>"
+	}
 	if (!viewer.avatarHash) {
 		viewerAvatar.classList.add("hidden");
 		viewerFallback.classList.remove("hidden");

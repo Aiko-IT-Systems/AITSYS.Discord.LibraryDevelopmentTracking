@@ -8,7 +8,6 @@ using System.Text.Json;
 
 using AITSYS.Discord.LibraryDevelopmentTracking.Commands;
 using AITSYS.Discord.LibraryDevelopmentTracking.Entities;
-using AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
 using AITSYS.Discord.LibraryDevelopmentTracking.Rest;
 
 using DisCatSharp;
@@ -113,7 +112,9 @@ public sealed class DiscordBot
 
 	public async Task StartAsync()
 	{
+#if !DEBUG
 		await this.DiscordClient.ConnectAsync();
+#endif
 		await this.RunServerAsync(Configuration);
 		while (!Shutdown.IsCancellationRequested)
 		{
@@ -392,7 +393,7 @@ public sealed class DiscordBot
 			{
 				var exchange = await auth.ExchangeCodeAsync(payload.Code, payload.InstanceId, payload.ChannelId);
 				var ttl = TimeSpan.FromMinutes(Math.Max(5, config.DiscordConfig.SessionTtlMinutes));
-				var session = sessions.CreateSession(exchange.User, exchange.Authorization, exchange.Guilds.Select(g => g.Id), exchange.Token, ttl, exchange.LaunchContext);
+				var session = sessions.CreateSession(exchange.User, exchange.Authorization, exchange.Guilds.Select(g => g.Id), exchange.Token, ttl, exchange.LaunchContext, exchange.Type, exchange.Libraries);
 				var sessionResponse = session.ToResponse();
 				context.Response.Cookies.Append(ActivityAuthService.SessionCookieName, session.SessionId, CreateSessionCookieOptions(ttl));
 				return Results.Json(new AuthExchangeResponse(sessionResponse));
@@ -541,7 +542,7 @@ public sealed class DiscordBot
 
 	private static SessionResponse BuildLocalDevSession()
 		=> new(
-			new ViewerIdentity("0", "Local Dev", "Local Development", null),
+			new ViewerIdentity("0", "Local Dev", "Local Development", null, "Admin", [.. Configuration.DiscordConfig.LibraryRoleMapping.Values]),
 			new AuthorizationSnapshot(true, false, true, false, false),
 			true,
 			null,

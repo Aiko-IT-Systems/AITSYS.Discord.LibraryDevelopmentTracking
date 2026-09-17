@@ -68,6 +68,8 @@ internal sealed class ActivityAuthService(DiscordClient discordClient, Config co
 		var oauthClient = this.GetOrCreateOAuthClient(application.Id);
 		var token = await oauthClient.ExchangeAccessTokenAsync(code);
 		var user = await oauthClient.GetCurrentUserAsync(token);
+		var type = "External";
+		List<string>? libraries = null;
 
 		IReadOnlyList<DiscordGuild> guilds;
 		try
@@ -80,6 +82,23 @@ internal sealed class ActivityAuthService(DiscordClient discordClient, Config co
 			guilds = [];
 		}
 
+		if (guilds.Count is not 0 && guilds.Any(guild => guild.Id == this._config.DiscordConfig.DiscordGuild) && this._discordClient.Guilds[this._config.DiscordConfig.DiscordGuild].TryGetMember(user.Id, out var member))
+		{
+			libraries = [];
+			foreach (var library in this._config.DiscordConfig.LibraryRoleMapping)
+				if (member.RoleIds.Contains(library.Key))
+					libraries.Add(library.Value);
+			if (member.RoleIds.Contains(this._config.DiscordConfig.LibraryDeveloperRoleId))
+				type = "Library Developer";
+			else if (member.RoleIds.Contains(this._config.DiscordConfig.BotDeveloperRoleId))
+				type = "Bot Developer";
+		}
+
+		if (user.IsStaff)
+			type = "Employee";
+		/*else if (user.Id is 856780995629154305) // re-enable if edit
+			type = "Admin";*/
+
 		var launchContext = await this.ResolveLaunchContextAsync(requestedChannelId, instanceId, user.Id);
 
 		var authorization = this.Authorize(application, user.Id, guilds.Select(g => g.Id));
@@ -89,7 +108,7 @@ internal sealed class ActivityAuthService(DiscordClient discordClient, Config co
 			throw new UnauthorizedAccessException("You are not allowed to use the activity.");
 		}
 
-		return new AuthExchangeResult(StoredDiscordAccessToken.FromDiscordToken(token), user, authorization, guilds, launchContext);
+		return new AuthExchangeResult(StoredDiscordAccessToken.FromDiscordToken(token), user, authorization, guilds, launchContext, type, libraries?.ToArray());
 	}
 
 	public async Task<ActivityLaunchContext?> ResolveLaunchContextAsync(string? channelId, string? instanceId, ulong userId)
@@ -275,7 +294,7 @@ internal sealed record SessionResponse(
 	string? ActiveChannelId);
 
 
-internal sealed record ViewerIdentity(string Id, string Username, string? DisplayName, string? AvatarHash);
+internal sealed record ViewerIdentity(string Id, string Username, string? DisplayName, string? AvatarHash, string Type, string[]? Libraries);
 
 internal sealed record AuthorizationSnapshot(bool IsAuthorized, bool ViaTeam, bool ViaUserAllowlist, bool ViaGuildAllowlist, bool ViaWhitelistDisabled);
 
@@ -290,7 +309,9 @@ internal sealed record ActivitySession(
 	StoredDiscordAccessToken OAuthToken,
 	ActivityLaunchContext? LaunchContext,
 	DateTimeOffset CreatedAt,
-	DateTimeOffset ExpiresAt)
+	DateTimeOffset ExpiresAt,
+	string Type,
+	string[]? Libraries = null)
 {
 	public SessionResponse ToResponse(bool localDev = false)
 		=> this.BuildResponse(this.Authorization, localDev);
@@ -300,7 +321,7 @@ internal sealed record ActivitySession(
 
 	private SessionResponse BuildResponse(AuthorizationSnapshot authorization, bool localDev)
 		=> new(
-			new ViewerIdentity(this.UserId.ToString(), this.Username, this.DisplayName, this.AvatarHash),
+			new ViewerIdentity(this.UserId.ToString(), this.Username, this.DisplayName, this.AvatarHash, this.Type, this.Libraries),
 			authorization,
 			localDev,
 			this.LaunchContext?.GuildId?.ToString(),
@@ -312,7 +333,9 @@ internal sealed record AuthExchangeResult(
 	DiscordUser User,
 	AuthorizationSnapshot Authorization,
 	IReadOnlyList<DiscordGuild> Guilds,
-	ActivityLaunchContext? LaunchContext);
+	ActivityLaunchContext? LaunchContext,
+	string Type,
+	string[]? Libraries);
 
 internal sealed record ActivityLaunchContext(
 	string? InstanceId,

@@ -44,6 +44,8 @@ export type ViewerIdentity = {
 	username: string;
 	displayName?: string | null;
 	avatarHash?: string | null;
+	type: "External" | "Library Developer" | "Bot Developer" | "Employee" | "Admin"
+	libraries?: string[];
 };
 
 /**
@@ -53,14 +55,6 @@ export type SessionResponse = {
 	user: ViewerIdentity;
 	authorization: AuthorizationSnapshot;
 	localDev: boolean;
-	pendingIntent?: {
-		intent: number;
-		target?: string | null;
-		launchIntent?: {
-			guildId?: unknown;
-			channelId?: unknown;
-		} | null;
-	} | null;
 	activeGuildId?: string | null;
 	activeChannelId?: string | null;
 };

@@ -16,7 +16,7 @@ internal sealed class ActivitySessionStore
 
 	private readonly Dictionary<string, ActivitySession> _sessions = new(StringComparer.Ordinal);
 
-	public ActivitySession CreateSession(DiscordUser user, AuthorizationSnapshot authorization, IEnumerable<ulong> guildIds, StoredDiscordAccessToken oauthToken, TimeSpan ttl, ActivityLaunchContext? launchContext = null)
+	public ActivitySession CreateSession(DiscordUser user, AuthorizationSnapshot authorization, IEnumerable<ulong> guildIds, StoredDiscordAccessToken oauthToken, TimeSpan ttl, ActivityLaunchContext? launchContext = null, string type = "External", string[]? libraries = null)
 	{
 		var sessionId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 		var now = DateTimeOffset.UtcNow;
@@ -31,7 +31,9 @@ internal sealed class ActivitySessionStore
 			oauthToken,
 			launchContext,
 			now,
-			now.Add(ttl));
+			now.Add(ttl),
+			type,
+			libraries);
 
 		lock (this._gate)
 		{

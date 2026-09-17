@@ -333,6 +333,14 @@ button {
 	padding: 4px 6px;
 }
 
+.viewer-access {
+	display: inline-block;
+	align-items: center;
+	gap: 10px;
+	min-height: 44px;
+	padding: 4px 6px;
+}
+
 .viewer-avatar {
 	width: 32px;
 	height: 32px;
@@ -369,6 +377,23 @@ button {
 }
 
 .viewer-info span {
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.viewer-access strong,
+.viewer-access span {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.viewer-access strong {
+	color: var(--text-primary);
+	font-size: 13px;
+}
+
+.viewer-access span {
 	color: var(--text-muted);
 	font-size: 12px;
 }
