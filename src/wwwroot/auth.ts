@@ -247,6 +247,7 @@ export async function setActivityPresence(activity: {
 		}
 	};
 }) {
+	return;
 	const config = await getAuthConfig();
 	if (config.localDevActive || !config.activityRequired) {
 		throw new Error(
