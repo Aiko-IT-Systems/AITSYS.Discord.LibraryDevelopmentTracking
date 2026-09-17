@@ -676,7 +676,7 @@ function populateViewer(viewer: ViewerIdentity, localDev: boolean) {
 	if (localDev || viewer.type === "Admin" || viewer.type === "Employee") {
 		viewerLibrary.innerHTML = "<i>All</i>";
 	} else if (viewer.libraries !== undefined) {
-		let libraries: string;
+		let libraries: string = "";
 		viewer.libraries.forEach((library) => {
 			if (library !== undefined && library !== "undefined") {
 				libraries = libraries + `<br/><i>${library}</i>`;
