@@ -145,6 +145,7 @@ public sealed class DiscordBot
 		builder.Services.AddSingleton<ActivityAuthService>();
 		builder.Services.AddSingleton<ActivityTrackingService>();
 		builder.Services.AddSingleton<ActivityShareService>();
+		builder.Services.AddHealthChecks();
 		builder.Services.ConfigureHttpJsonOptions(o =>
 		{
 			o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
@@ -180,11 +181,12 @@ public sealed class DiscordBot
 			EnsureBootMarker(context, bootState);
 			await next();
 		});
+		this.WebApplication.MapHealthChecks("/health");
 		this.WebApplication.Use(async (context, next) =>
 		{
 			var anonymousPath = IsAlwaysAnonymousStaticPath(context.Request.Path);
 			var shouldValidate = DiscordProxyAuthentication.ShouldValidate(context.Request, config);
-			bool proxyAuthSuccess = false;
+			var proxyAuthSuccess = false;
 
 			Console.WriteLine("Checking paths and request");
 
@@ -566,7 +568,8 @@ public sealed class DiscordBot
 	private static bool IsAlwaysAnonymousStaticPath(PathString path)
 		=> path.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase)
 			|| path.Equals("/discord.png", StringComparison.OrdinalIgnoreCase)
-			|| path.Equals("/style.css");
+			|| path.Equals("/style.css")
+			|| path.Equals("/health");
 
 	private static CookieOptions CreateSessionCookieOptions(TimeSpan ttl)
 		=> new()
