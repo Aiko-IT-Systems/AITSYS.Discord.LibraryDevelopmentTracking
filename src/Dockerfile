@@ -21,6 +21,8 @@ COPY --from=web-build /src/wwwroot/app.js.map ./wwwroot/app.js.map
 RUN dotnet publish AITSYS.Discord.LibraryDevelopmentTracking.csproj -c ${BUILD_CONFIGURATION} -o /app/publish /p:UseAppHost=false /p:LangVersion=preview
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+RUN apt update
+RUN apt install -qq wget
 RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
 WORKDIR /app
 
