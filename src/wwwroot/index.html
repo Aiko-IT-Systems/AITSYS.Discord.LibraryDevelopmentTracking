@@ -303,6 +303,7 @@
 										<th>Status</th>
 										<th>Version</th>
 										<th>Implementation</th>
+										<th>Actions</th>
 									</tr>
 								</thead>
 
@@ -323,6 +324,28 @@
 				</div>
 			</main>
 		</div>
+
+		<dialog id="editLibraryDialog" class="edit-dialog">
+			<form id="editLibraryForm" method="dialog">
+				<header class="edit-dialog-header">
+					<div>
+						<span class="page-overline">Library status update</span>
+						<h2 id="editLibraryName">Library</h2>
+					</div>
+					<button id="cancelEditButton" class="icon-button" type="button" aria-label="Close" title="Close">×</button>
+				</header>
+
+				<label>Status<select id="editStatus" required></select></label>
+				<label>Pull Request / Commit<input id="editPrCommit" type="url" /></label>
+				<label>Version<input id="editVersion" type="text" /></label>
+				<label>Details<textarea id="editNotes" rows="4"></textarea></label>
+
+				<footer class="edit-dialog-actions">
+					<button id="cancelEditButtonFooter" class="button button-secondary" type="button">Cancel</button>
+					<button id="submitEditButton" class="button button-primary" type="submit">Update library</button>
+				</footer>
+			</form>
+		</dialog>
 
 		<script src="app.js?v=__ASSET_VERSION__"></script>
 	</body>

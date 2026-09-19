@@ -67,6 +67,27 @@ internal sealed class ActivityTrackingService(Config config, NotionRestClient no
 		}
 	}
 
+	public async Task UpdateLibraryAsync(string pageId, ulong userId, string libraryName, string status, string? prCommit, string? version, string? notes)
+	{
+		var configuredNotion = (this._config.NotionConfig.ImplementationTrackingConfig ?? [])
+			.FirstOrDefault(notion => string.Equals(notion.PageId, pageId, StringComparison.OrdinalIgnoreCase)) ?? throw new KeyNotFoundException("The requested notion is not configured for tracking.");
+		var dataSource = await this._notionClient.GetDataSourceBySearchAsync(pageId)
+			?? throw new InvalidOperationException("The tracking data source could not be found.");
+		var currentData = await this._notionClient.QueryDataSourceAsync(dataSource.Id, libraryName);
+		var library = (currentData?.Results?.FirstOrDefault()) ?? throw new KeyNotFoundException("The selected library is not tracked in this notion.");
+		var statusOption = dataSource.Properties?.Status?.InnerStatus?.Options?
+			.FirstOrDefault(option => string.Equals(option.Id, status, StringComparison.OrdinalIgnoreCase)
+				|| string.Equals(option.Name, status, StringComparison.OrdinalIgnoreCase));
+		if (statusOption is null || string.IsNullOrWhiteSpace(statusOption.Id))
+			throw new ArgumentException("The selected implementation status is not valid.", nameof(status));
+
+		var result = await this._notionClient.UpdatePageAsync(library.Id, userId, statusOption.Id, prCommit, version, notes);
+		if (result.Contains("\"error\"", StringComparison.OrdinalIgnoreCase))
+			throw new InvalidOperationException("Notion rejected the library update.");
+
+		this._cache.Remove($"activity-tracking:notion:{configuredNotion.PageId}");
+	}
+
 	private async Task<TrackedNotionDetails> LoadTrackedNotionAsync(ImplementationTrackingConfig configuredNotion)
 	{
 
@@ -157,7 +178,8 @@ internal sealed class ActivityTrackingService(Config config, NotionRestClient no
 			JoinText(properties?.Language?.RichText) ?? "Unspecified",
 			properties?.Status?.InnerStatus?.Name ?? fallbackStatus,
 			JoinText(properties?.ReleasedInVersion?.RichText),
-			properties?.PullRequestCommit?.Url);
+			properties?.PullRequestCommit?.Url,
+			JoinText(properties?.Notes?.RichText));
 	}
 
 	private static string? JoinText(IEnumerable<NotionPageResult.Title>? values)
@@ -202,4 +224,5 @@ internal sealed record LibraryStatistic(
 	string Language,
 	string Status,
 	string? Version,
-	string? ImplementationUrl);
+	string? ImplementationUrl,
+	string? Notes);

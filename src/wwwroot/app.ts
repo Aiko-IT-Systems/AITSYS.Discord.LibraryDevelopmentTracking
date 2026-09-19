@@ -46,6 +46,7 @@ type Library = {
 	status: string;
 	version?: string | null;
 	implementationUrl?: string | null;
+	notes?: string | null;
 };
 type NotionDetails = {
 	id: string;
@@ -139,9 +140,29 @@ const shareActivityButton = el("shareActivityButton") as HTMLButtonElement,
 const libraryCount = el("libraryCount"),
 	libraryRows = el("libraryTableBody"),
 	statusCanvas = el("statusChart") as HTMLCanvasElement,
-	languageCanvas = el("languageChart") as HTMLCanvasElement;
+	languageCanvas = el("languageChart") as HTMLCanvasElement,
+	editDialog = el("editLibraryDialog") as HTMLDialogElement,
+	editForm = el("editLibraryForm") as HTMLFormElement,
+	editLibraryName = el("editLibraryName"),
+	editStatus = el("editStatus") as HTMLSelectElement,
+	editPrCommit = el("editPrCommit") as HTMLInputElement,
+	editVersion = el("editVersion") as HTMLInputElement,
+	editNotes = el("editNotes") as HTMLTextAreaElement,
+	cancelEditButton = el("cancelEditButton") as HTMLButtonElement,
+	cancelEditButtonFooter = el("cancelEditButtonFooter") as HTMLButtonElement,
+	submitEditButton = el("submitEditButton") as HTMLButtonElement;
+
+let editingNotionId: string | null = null;
+let editingLibraryName: string | null = null;
 
 void bootstrap();
+
+cancelEditButton.addEventListener("click", () => editDialog.close());
+cancelEditButtonFooter.addEventListener("click", () => editDialog.close());
+editForm.addEventListener("submit", (event) => {
+	event.preventDefault();
+	void submitLibraryEdit();
+});
 
 async function bootstrap() {
 	try {
@@ -296,7 +317,7 @@ async function renderDetails(notion: NotionDetails) {
 	shareActivityButton.onclick = () => void shareCurrentActivity(notion);
 	renderMetrics(notion.statusCounts);
 	renderCharts(notion);
-	renderLibraries(notion.customId, notion.libraries);
+	renderLibraries(notion.id, notion.libraries);
 	shareStatusChartButton.disabled = !state.statusChart;
 	shareLanguageChartButton.disabled = !state.languageChart;
 	shareStatusChartButton.onclick = () =>
@@ -658,11 +679,50 @@ function actionCell(currentNotionId: string, library: Library) {
 	return result;
 }
 async function editLibraryImplementationState(currentNotionId: string, library: Library) {
-	
-	//await submitNewLibraryImplementationState("");
+	editingNotionId = currentNotionId;
+	editingLibraryName = library.name;
+	editLibraryName.textContent = library.name;
+	editStatus.replaceChildren(
+		...statuses.map((status) => {
+			const option = document.createElement("option");
+			option.value = status;
+			option.textContent = status;
+			option.selected = status === library.status;
+			return option;
+		}),
+	);
+	editPrCommit.value = library.implementationUrl ?? "";
+	editVersion.value = library.version ?? "";
+	editNotes.value = library.notes ?? "";
+	editDialog.showModal();
+}
 
-	// refresh the notion again with the new data. cache needs to be busted / updated on the backend
-	await loadNotions(true, currentNotionId);
+async function submitLibraryEdit() {
+	if (!editingNotionId || !editingLibraryName) return;
+
+	submitEditButton.disabled = true;
+	try {
+		await fetchJson<void>(
+			`/api/tracking/notions/${encodeURIComponent(editingNotionId)}/libraries/update`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					libraryName: editingLibraryName,
+					status: editStatus.value,
+					prCommit: editPrCommit.value.trim() || null,
+					version: editVersion.value.trim() || null,
+					notes: editNotes.value.trim() || null,
+				}),
+			},
+		);
+		editDialog.close();
+		await loadNotions(true);
+	} catch (error) {
+		showError(error, "Couldn't update this library");
+	} finally {
+		submitEditButton.disabled = false;
+	}
 }
 function showEmpty(message: string) {
 	dashboard.classList.add("hidden");

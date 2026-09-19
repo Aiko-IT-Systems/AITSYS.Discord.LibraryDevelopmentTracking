@@ -112,7 +112,7 @@ public sealed class DiscordBot
 
 	public async Task StartAsync()
 	{
-#if !DEBUG
+#if !DEBUG1
 		await this.DiscordClient.ConnectAsync();
 #endif
 		await this.RunServerAsync(Configuration);
@@ -431,6 +431,45 @@ public sealed class DiscordBot
 			}
 		});
 
+		this.WebApplication.MapPost("/api/tracking/notions/{pageId}/libraries/update", async (
+			HttpContext context,
+			string pageId,
+			UpdateLibraryRequest payload,
+			ActivityTrackingService tracking,
+			ActivityAuthService auth,
+			ILogger<DiscordBot> logger) =>
+		{
+			var localDev = auth.IsLocalDevAllowed(context.Request);
+			var session = context.Items[typeof(ActivitySession)] as ActivitySession;
+			if (!localDev && session is null)
+				return Results.Json(new { message = "Authentication required." }, statusCode: StatusCodes.Status401Unauthorized);
+
+			if (payload is null || string.IsNullOrWhiteSpace(payload.LibraryName) || string.IsNullOrWhiteSpace(payload.Status))
+				return Results.BadRequest(new { message = "Library name and status are required." });
+
+			if (!localDev && !await auth.CanEditLibraryAsync(session!, payload.LibraryName))
+				return Results.Json(new { message = "You are not allowed to edit this library." }, statusCode: StatusCodes.Status403Forbidden);
+
+			try
+			{
+				await tracking.UpdateLibraryAsync(pageId, session?.UserId ?? 0, payload.LibraryName, payload.Status, payload.PrCommit, payload.Version, payload.Notes);
+				return Results.NoContent();
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return Results.NotFound(new { message = ex.Message });
+			}
+			catch (ArgumentException ex)
+			{
+				return Results.BadRequest(new { message = ex.Message });
+			}
+			catch (Exception ex)
+			{
+				logger.LogError(ex, "Failed to update library {LibraryName} in notion {PageId} for activity user {UserId}.", payload.LibraryName, pageId, session?.UserId ?? 0);
+				return Results.Problem("The library could not be updated right now.", statusCode: StatusCodes.Status502BadGateway);
+			}
+		});
+
 		this.WebApplication.MapPost("/api/tracking/notions/{pageId}/quick-link", async (
 			HttpContext context,
 			string pageId,
@@ -581,6 +620,8 @@ public sealed class DiscordBot
 
 	private static string SanitizeActivityFileName(string value)
 		=> new([.. value.Where(character => char.IsLetterOrDigit(character) || character is '-' or '_')]);
+
+	private sealed record UpdateLibraryRequest(string LibraryName, string Status, string? PrCommit, string? Version, string? Notes);
 
 	private static Task WriteErrorPageAsync(HttpContext context, int statusCode, string title, string message)
 	{

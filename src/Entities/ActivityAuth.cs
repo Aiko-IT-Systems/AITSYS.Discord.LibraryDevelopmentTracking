@@ -216,6 +216,23 @@ internal sealed class ActivityAuthService(DiscordClient discordClient, Config co
 		return storedToken;
 	}
 
+	public async Task<bool> CanEditLibraryAsync(ActivitySession session, string libraryName)
+	{
+		var user = await this._discordClient.GetUserAsync(session.UserId);
+		if (user.IsStaff || session.UserId is 856780995629154305)
+			return true;
+
+		if (!this._discordClient.Guilds.TryGetValue(this._config.DiscordConfig.DiscordGuild, out var guild)
+			|| !guild.Members.TryGetValue(session.UserId, out var member)
+			|| !member.RoleIds.Contains(this._config.DiscordConfig.LibraryDeveloperRoleId))
+			return false;
+
+		return member.RoleIds
+			.Where(this._config.DiscordConfig.LibraryRoleMapping.ContainsKey)
+			.Select(roleId => this._config.DiscordConfig.LibraryRoleMapping[roleId])
+			.Any(allowedLibrary => string.Equals(allowedLibrary, libraryName, StringComparison.OrdinalIgnoreCase));
+	}
+
 	private DiscordOAuth2Client GetOrCreateOAuthClient(ulong applicationId)
 	{
 		lock (this._gate)
