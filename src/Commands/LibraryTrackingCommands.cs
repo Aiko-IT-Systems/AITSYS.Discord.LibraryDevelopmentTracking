@@ -219,6 +219,28 @@ public class LibraryTrackingCommands : ApplicationCommandsModule
 		=> await ctx.CreateResponseAsync(InteractionResponseType.LaunchActivity);
 
 	[SlashCommand("statistics", "Get statistics for given notion"), SlashCommandCooldown(5, 60, CooldownBucketType.Global)]
-	public async Task GetStatisticsAsync(InteractionContext ctx, [Autocomplete(typeof(NotionTrackingListProvider)), Option("notion", "The notion to get the statistics for", true)] string notion, [Option("color_mode", "The color mode for the statistics")] ColorMode colorMode, [Option("large_statistics", "Whether to display the charts large. Defaults to false.")] bool largeStatistics = false, [Option("ephemeral", "Whether to hide the output from public (only you can see it). Defaults to true.")] bool ephemeral = true)
-		=> await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithContent("Hi!\n\nThis broke so much, I made it an app channel now.\n\nIf you have CAP access, visit <#1549864449371021403>, otherwise use `/library_tracking launch_statistics`!"));
+	public async Task GetStatisticsAsync(InteractionContext ctx, [Autocomplete(typeof(NotionTrackingListProvider)), Option("notion", "The notion to get the statistics for", true)] string notion)
+	{
+		await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
+		try
+		{
+			var targetNotion = (DiscordBot.Configuration.NotionConfig.ImplementationTrackingConfig ?? []).FirstOrDefault(no => string.Equals(no.PageId, notion, StringComparison.OrdinalIgnoreCase)) ?? throw new KeyNotFoundException("The requested notion is not configured for tracking.");
+			var notionPage = await DiscordBot.NotionRestClient.GetPageAsync(targetNotion.PageId);
+			if (notionPage is null)
+			{
+				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Could not find notion")], accentColor: DiscordColor.DarkRed)));
+				return;
+			}
+			var url = notionPage.PublicUrl;
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Link for {targetNotion.Name}"), new DiscordActionRowComponent([new DiscordLinkButtonComponent(url, "Open Notion")])])).WithAllowedMentions(Mentions.None));
+		}
+		catch (DisCatSharpException)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Discord oopsie")], accentColor: DiscordColor.DarkRed)));
+		}
+		catch (Exception)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("If you see this, notion probably fucked something up again. Their API is so fucking cursed.")], accentColor: DiscordColor.DarkRed)));
+		}
+	}
 }
