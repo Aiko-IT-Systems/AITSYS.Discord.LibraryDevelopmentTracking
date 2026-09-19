@@ -11,7 +11,6 @@
 	</head>
 
 	<body class="auth-pending">
-		<!-- Existing Activity authentication can drive this shell. -->
 		<div id="authShell" class="auth-shell">
 			<div class="auth-card">
 				<div class="auth-logo">
@@ -31,7 +30,6 @@
 		</div>
 
 		<div id="appShell" class="app-shell hidden">
-			<!-- LEFT SIDEBAR -->
 			<aside class="sidebar">
 				<header class="sidebar-header">
 					<div class="app-icon">
@@ -68,7 +66,6 @@
 						class="notion-list"
 						aria-label="Tracked notions"
 					>
-						<!-- Loading examples -->
 						<div class="notion-skeleton"></div>
 						<div class="notion-skeleton"></div>
 						<div class="notion-skeleton"></div>
@@ -105,9 +102,7 @@
 				</footer>
 			</aside>
 
-			<!-- MAIN CONTENT -->
 			<main class="main">
-				<!-- Empty state before notion selection -->
 				<section id="emptyState" class="empty-state hidden">
 					<div class="empty-icon">
 						<svg viewBox="0 0 24 24" aria-hidden="true">
@@ -123,7 +118,6 @@
 					</p>
 				</section>
 
-				<!-- Dashboard -->
 				<div id="dashboard" class="dashboard hidden">
 					<header class="page-header">
 						<div class="page-title-block">
@@ -134,14 +128,13 @@
 									Implementation tracking
 								</div>
 
-								<h1 id="notionTitle">File Upload Limits</h1>
+								<h1 id="notionTitle">Notion Title</h1>
 
 								<p
 									id="notionDescription"
 									class="page-description"
 								>
-									Support to limit file upload modal
-									components by type.
+									Notion Description.
 								</p>
 							</div>
 						</div>
@@ -166,12 +159,11 @@
 								type="button"
 								disabled
 							>
-								Share Activity
+								Invite Page
 							</button>
 						</div>
 					</header>
 
-					<!-- STATUS OVERVIEW -->
 					<section
 						class="stats-overview"
 						aria-label="Implementation status"
@@ -235,7 +227,6 @@
 						</div>
 					</section>
 
-					<!-- CHARTS -->
 					<section class="chart-grid">
 						<article class="panel">
 							<header class="panel-header">
@@ -253,7 +244,7 @@
 									type="button"
 									disabled
 								>
-									Share image
+									Share
 								</button>
 							</header>
 
@@ -280,7 +271,7 @@
 									type="button"
 									disabled
 								>
-									Share image
+									Share
 								</button>
 							</header>
 
@@ -321,13 +312,11 @@
 					</section>
 				</div>
 
-				<!-- Loading overlay -->
 				<div id="loadingState" class="loading-state hidden">
 					<div class="spinner"></div>
 					<span>Loading notion data…</span>
 				</div>
 
-				<!-- Error banner -->
 				<div id="errorBanner" class="error-banner hidden" role="alert">
 					<strong id="errorTitle">Something went wrong</strong>
 					<span id="errorMessage"></span>

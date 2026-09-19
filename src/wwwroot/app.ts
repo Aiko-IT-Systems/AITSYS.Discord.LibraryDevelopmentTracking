@@ -296,7 +296,7 @@ async function renderDetails(notion: NotionDetails) {
 	shareActivityButton.onclick = () => void shareCurrentActivity(notion);
 	renderMetrics(notion.statusCounts);
 	renderCharts(notion);
-	renderLibraries(notion.libraries);
+	renderLibraries(notion.customId, notion.libraries);
 	shareStatusChartButton.disabled = !state.statusChart;
 	shareLanguageChartButton.disabled = !state.languageChart;
 	shareStatusChartButton.onclick = () =>
@@ -401,7 +401,7 @@ function renderCharts(notion: NotionDetails) {
 	});
 }
 
-function renderLibraries(libraries: Library[]) {
+function renderLibraries(currentNotionId: string, libraries: Library[]) {
 	libraryCount.textContent = `${libraries.length} ${libraries.length === 1 ? "library" : "libraries"}`;
 	libraryRows.replaceChildren();
 	for (const library of libraries) {
@@ -412,6 +412,7 @@ function renderLibraries(libraries: Library[]) {
 			statusCell(library.status),
 			cell(library.version || "—"),
 			implementationCell(library.implementationUrl),
+			actionCell(currentNotionId, library),
 		);
 		libraryRows.append(row);
 	}
@@ -636,6 +637,32 @@ function implementationCell(url?: string | null) {
 	button.addEventListener("click", () => void openActivityLink(url));
 	result.append(button);
 	return result;
+}
+function actionCell(currentNotionId: string, library: Library) {
+	const result = document.createElement("td");
+
+	const session = state.session;
+	if (session.user.type !== "Admin" && session.user.type !== "Library Developer" && session.user.type !== "Employee") {
+		result.textContent = "—";
+		return result;
+	} else if (session.user.type === "Library Developer" && !session.user.libraries.includes(library.name)) {
+		result.textContent = "—";
+		return result;
+	}
+	const button = document.createElement("button");
+	button.type = "button";
+	button.className = "button button-primary";
+	button.textContent = "Edit";
+	button.addEventListener("click", () => void editLibraryImplementationState(currentNotionId, library));
+	result.append(button);
+	return result;
+}
+async function editLibraryImplementationState(currentNotionId: string, library: Library) {
+	
+	//await submitNewLibraryImplementationState("");
+
+	// refresh the notion again with the new data. cache needs to be busted / updated on the backend
+	await loadNotions(true, currentNotionId);
 }
 function showEmpty(message: string) {
 	dashboard.classList.add("hidden");
