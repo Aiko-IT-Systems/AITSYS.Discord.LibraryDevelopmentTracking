@@ -22,7 +22,7 @@ RUN dotnet publish AITSYS.Discord.LibraryDevelopmentTracking.csproj -c ${BUILD_C
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 RUN apt update
-RUN apt install -qq wget
+RUN apt install -qq --yes wget
 RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
 WORKDIR /app
 
