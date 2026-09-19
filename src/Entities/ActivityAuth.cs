@@ -96,8 +96,8 @@ internal sealed class ActivityAuthService(DiscordClient discordClient, Config co
 
 		if (user.IsStaff)
 			type = "Employee";
-		/*else if (user.Id is 856780995629154305) // re-enable if edit
-			type = "Admin";*/
+		else if (user.Id is 856780995629154305)
+			type = "Admin";
 
 		var launchContext = await this.ResolveLaunchContextAsync(requestedChannelId, instanceId, user.Id);
 
