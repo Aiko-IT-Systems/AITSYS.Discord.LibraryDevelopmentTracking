@@ -8,6 +8,7 @@ using System.Text.Json;
 
 using AITSYS.Discord.LibraryDevelopmentTracking.Commands;
 using AITSYS.Discord.LibraryDevelopmentTracking.Entities;
+using AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
 using AITSYS.Discord.LibraryDevelopmentTracking.Rest;
 
 using DisCatSharp;
@@ -192,7 +193,7 @@ public sealed class DiscordBot
 
 			if (!anonymousPath && shouldValidate && !DiscordProxyAuthentication.ValidateProxyRequest(context.Request, config, out var failureReason, out proxyAuthSuccess))
 			{
-				this.WebApplication.Logger.LogWarning("Rejected Discord proxy request for {Path}: {Reason}", context.Request.Path, failureReason);
+				this.WebApplication.Logger.LogWarning("Rejected Discord proxy request for {Path}: {Reason}", LogSanitizer.Sanitize(context.Request.Path), LogSanitizer.Sanitize(failureReason));
 				context.Response.StatusCode = StatusCodes.Status401Unauthorized;
 				if (context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
 				{
@@ -207,18 +208,18 @@ public sealed class DiscordBot
 			else
 			{
 				if (!anonymousPath && shouldValidate)
-					this.WebApplication.Logger.LogInformation("Validated Discord proxy request for {Path}", context.Request.Path);
+					this.WebApplication.Logger.LogInformation("Validated Discord proxy request for {Path}", LogSanitizer.Sanitize(context.Request.Path));
 				else if (anonymousPath)
-					this.WebApplication.Logger.LogInformation("Allowing anonymous static path for {Path}", context.Request.Path);
+					this.WebApplication.Logger.LogInformation("Allowing anonymous static path for {Path}", LogSanitizer.Sanitize(context.Request.Path));
 				else
-					this.WebApplication.Logger.LogInformation("Allowing non-anonymous path for {Path} without validation. This should not happen!", context.Request.Path);
+					this.WebApplication.Logger.LogInformation("Allowing non-anonymous path for {Path} without validation. This should not happen!", LogSanitizer.Sanitize(context.Request.Path));
 			}
 
 			var (isAllowed, hostFailureReason) = await HostAllowlist.IsAllowedAsync(context.Request, config, authService, proxyAuthSuccess);
 			Console.WriteLine($"Attempted auth for activity. Result: {isAllowed} ({hostFailureReason})");
 			if (!anonymousPath && !isAllowed)
 			{
-				this.WebApplication.Logger.LogWarning("Rejected host for {Path}: {Reason}", context.Request.Path, hostFailureReason);
+				this.WebApplication.Logger.LogWarning("Rejected host for {Path}: {Reason}", LogSanitizer.Sanitize(context.Request.Path), LogSanitizer.Sanitize(hostFailureReason));
 				context.Response.StatusCode = StatusCodes.Status403Forbidden;
 				if (context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
 				{
@@ -326,7 +327,7 @@ public sealed class DiscordBot
 					}
 					catch (UnauthorizedAccessException ex)
 					{
-						this.WebApplication.Logger.LogWarning(ex, "Failed to rebind activity session {SessionId} for user {UserId} to instance {InstanceId}.", session.SessionId, session.UserId, instanceId);
+						this.WebApplication.Logger.LogWarning(ex, "Failed to rebind activity session {SessionId} for user {UserId} to instance {InstanceId}.", LogSanitizer.Sanitize(session.SessionId), session.UserId, LogSanitizer.Sanitize(instanceId));
 						return Results.Json(new { message = ex.Message }, statusCode: StatusCodes.Status403Forbidden);
 					}
 				}
@@ -404,7 +405,7 @@ public sealed class DiscordBot
 			}
 			catch (BadRequestException ex)
 			{
-				this.WebApplication.Logger.LogWarning(ex, "Failed to exchange Discord OAuth code for instance {InstanceId}: {response}", payload.InstanceId, ex.JsonMessage);
+				this.WebApplication.Logger.LogWarning(ex, "Failed to exchange Discord OAuth code for instance {InstanceId}: {response}", LogSanitizer.Sanitize(payload.InstanceId), LogSanitizer.Sanitize(ex.JsonMessage));
 				return Results.Json(new { message = "Discord authentication failed." }, statusCode: StatusCodes.Status400BadRequest);
 			}
 			catch (Exception ex)
@@ -428,7 +429,7 @@ public sealed class DiscordBot
 			}
 			catch (Exception ex)
 			{
-				logger.LogError(ex, "Failed to build read-only Activity statistics for configured notion {PageId}.", pageId);
+				logger.LogError(ex, "Failed to build read-only Activity statistics for configured notion {PageId}.", LogSanitizer.Sanitize(pageId));
 				return Results.Problem("The tracking data could not be loaded right now.", statusCode: StatusCodes.Status502BadGateway);
 			}
 		});
@@ -467,7 +468,7 @@ public sealed class DiscordBot
 			}
 			catch (Exception ex)
 			{
-				logger.LogError(ex, "Failed to update library {LibraryName} in notion {PageId} for activity user {UserId}.", payload.LibraryName, pageId, session?.UserId ?? 0);
+				logger.LogError(ex, "Failed to update library {LibraryName} in notion {PageId} for activity user {UserId}.", LogSanitizer.Sanitize(payload.LibraryName), LogSanitizer.Sanitize(pageId), session?.UserId ?? 0);
 				return Results.Problem("The library could not be updated right now.", statusCode: StatusCodes.Status502BadGateway);
 			}
 		});
@@ -500,7 +501,7 @@ public sealed class DiscordBot
 			catch (Exception ex) when (ex is not OperationCanceledException)
 			{
 				// Custom links still route by custom_id without their optional Discord preview.
-				logger.LogDebug(ex, "Best-effort quick-link provisioning failed for notion {PageId}.", pageId);
+				logger.LogDebug(ex, "Best-effort quick-link provisioning failed for notion {PageId}.", LogSanitizer.Sanitize(pageId));
 			}
 
 			return Results.NoContent();
@@ -543,7 +544,7 @@ public sealed class DiscordBot
 			}
 			catch (Exception ex)
 			{
-				logger.LogWarning(ex, "Failed to upload shared chart image for notion {PageId} and activity user {UserId}.", pageId, session.UserId);
+				logger.LogWarning(ex, "Failed to upload shared chart image for notion {PageId} and activity user {UserId}.", LogSanitizer.Sanitize(pageId), session.UserId);
 				return Results.Problem("Discord could not prepare this chart for sharing.", statusCode: StatusCodes.Status502BadGateway);
 			}
 		}).DisableAntiforgery();

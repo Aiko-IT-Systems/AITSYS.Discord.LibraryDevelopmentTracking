@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 
 using AITSYS.Discord.LibraryDevelopmentTracking.Entities;
+using AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
 using AITSYS.Discord.LibraryDevelopmentTracking.Entities.Notion;
 
 using Newtonsoft.Json;
@@ -156,15 +157,15 @@ public sealed class NotionRestClient
 
 	internal async Task<NotionDataSourceQueryResult?> QueryDataSourceAsync(string dataSourceId, string libraryName)
 	{
-		Console.WriteLine($"Querying Notion data source {dataSourceId} for library {libraryName}");
-		var payload = $@"{{
-			""filter"": {{
-				""property"": ""Library"",
-				""title"": {{
-					""equals"": ""{libraryName}""
-				}}
-			}}
-		}}";
+		Console.WriteLine($"Querying Notion data source {LogSanitizer.Sanitize(dataSourceId)} for library {LogSanitizer.Sanitize(libraryName)}");
+		var payload = JsonConvert.SerializeObject(new
+		{
+			filter = new
+			{
+				property = "Library",
+				title = new { equals = libraryName }
+			}
+		});
 		var result = await this.HTTP_CLIENT.PostAsync($"https://api.notion.com/v1/data_sources/{dataSourceId}/query", new StringContent(payload, Encoding.UTF8, "application/json"));
 		var content = await result.Content.ReadAsStringAsync();
 		Console.WriteLine("Notion queried");

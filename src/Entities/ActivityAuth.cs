@@ -10,6 +10,8 @@ using DisCatSharp.Entities.OAuth2;
 using DisCatSharp.Enums;
 using DisCatSharp.Exceptions;
 
+using AITSYS.Discord.LibraryDevelopmentTracking.Helpers;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -136,7 +138,7 @@ internal sealed class ActivityAuthService(DiscordClient discordClient, Config co
 			}
 			catch (Exception ex)
 			{
-				this._logger.LogWarning(ex, "Failed to resolve channel {ChannelId} for user {UserId}.", channelId, userId);
+				this._logger.LogWarning(ex, "Failed to resolve channel {ChannelId} for user {UserId}.", LogSanitizer.Sanitize(channelId), userId);
 				throw new UnauthorizedAccessException("The Discord activity instance could not be validated.");
 			}
 		}
@@ -144,7 +146,7 @@ internal sealed class ActivityAuthService(DiscordClient discordClient, Config co
 		var instance = await this.GetActivityInstanceAsync(instanceId);
 		if (instance is null)
 		{
-			this._logger.LogWarning("Denied activity access for user {UserId}: activity instance {InstanceId} was not found.", userId, instanceId);
+			this._logger.LogWarning("Denied activity access for user {UserId}: activity instance {InstanceId} was not found.", userId, LogSanitizer.Sanitize(instanceId));
 			throw new UnauthorizedAccessException("The Discord activity instance is no longer valid.");
 		}
 
@@ -167,8 +169,8 @@ internal sealed class ActivityAuthService(DiscordClient discordClient, Config co
 			this._logger.LogWarning(
 				"Denied activity access for user {UserId}: activity instance {InstanceId} does not include the user. Instance users were [{Users}].",
 				userId,
-				instanceId,
-				string.Join(", ", instanceUserIds));
+				LogSanitizer.Sanitize(instanceId),
+				LogSanitizer.Sanitize(string.Join(", ", instanceUserIds)));
 			throw new UnauthorizedAccessException("You are not part of the active Discord activity instance.");
 		}
 
@@ -282,12 +284,12 @@ internal sealed class ActivityAuthService(DiscordClient discordClient, Config co
 		}
 		catch (NotFoundException)
 		{
-			this._logger.LogWarning("Discord activity instance lookup returned 404 for {InstanceId}.", instanceId);
+			this._logger.LogWarning("Discord activity instance lookup returned 404 for {InstanceId}.", LogSanitizer.Sanitize(instanceId));
 			return null;
 		}
 		catch (Exception ex)
 		{
-			this._logger.LogError(ex, "Discord activity instance lookup failed for {InstanceId}.", instanceId);
+			this._logger.LogError(ex, "Discord activity instance lookup failed for {InstanceId}.", LogSanitizer.Sanitize(instanceId));
 			throw;
 		}
 	}

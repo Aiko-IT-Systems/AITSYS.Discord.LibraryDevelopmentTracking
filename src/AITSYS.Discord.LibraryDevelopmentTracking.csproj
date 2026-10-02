@@ -27,6 +27,8 @@
 		<PackageReference Include="Microsoft.Identity.Client" Version="4.89.0" />
 		<PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.22.0" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
+		<PackageReference Include="NuGet.Protocol" Version="7.9.0" />
+		<PackageReference Include="NuGet.Packaging" Version="7.9.0" />
 	</ItemGroup>
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
