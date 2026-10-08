@@ -502,7 +502,7 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 			if (interaction.Data.CustomId is "skip_roles")
 			{
 				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container.AddComponent(new DiscordTextDisplayComponent("Creating invite.."))]).DisableAllComponents());
-				var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, targetUserIds: [user.Id]);
+				var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(unique: true, targetUserIds: [user.Id]);
 				while (!processed)
 				{
 					var jobStatus = await ctx.Client.GetInviteTargetUsersJobStatusAsync(invite.Code);
@@ -524,7 +524,7 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 			{
 				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container.AddComponent(new DiscordTextDisplayComponent("Creating invite.."))]).DisableAllComponents());
 				var selectedRoleIds = result.Result.Values.Select(x => Convert.ToUInt64(x));
-				var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: 1, unique: true, roleIds: [.. selectedRoleIds], targetUserIds: [user.Id]);
+				var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(unique: true, roleIds: [.. selectedRoleIds], targetUserIds: [user.Id]);
 				while (!processed)
 				{
 					var jobStatus = await ctx.Client.GetInviteTargetUsersJobStatusAsync(invite.Code);
@@ -588,11 +588,13 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 			}
 		}
 
+		DiscordInvite invite;
 		var selectedRoleIds = roleSelectInput?.Select(x => Convert.ToUInt64(x));
-		var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: userIds.Count, unique: true, roleIds: selectedRoleIds);
-		await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Locking invite to users..")], accentColor: DiscordColor.Blue)).WithAllowedMentions(Mentions.None));
 		try
 		{
+			invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(unique: true, roleIds: selectedRoleIds);
+			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Locking invite to users..")], accentColor: DiscordColor.Blue)).WithAllowedMentions(Mentions.None));
+
 			await invite.AddTargetUsersAsync(userIds);
 		}
 		catch (BadRequestException ex)
@@ -639,13 +641,14 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 			.FirstOrDefault(x => x.Component is DiscordRoleSelectComponent y && y.CustomId is "roles")?.Component as DiscordRoleSelectComponent)?.SelectedValues;
 
 		var members = await guild.GetAllMembersAsync();
-		List<ulong> userIds = [..members.Select(x => x.Id)];
+		List<ulong> userIds = [.. members.Select(x => x.Id)];
 
+		DiscordInvite invite;
 		var selectedRoleIds = roleSelectInput?.Select(x => Convert.ToUInt64(x));
-		var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: userIds.Count, unique: true, roleIds: selectedRoleIds);
-		await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Locking invite to users..")], accentColor: DiscordColor.Blue)).WithAllowedMentions(Mentions.None));
 		try
 		{
+			invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(unique: true, roleIds: selectedRoleIds);
+			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Locking invite to users..")], accentColor: DiscordColor.Blue)).WithAllowedMentions(Mentions.None));
 			await invite.AddTargetUsersAsync(userIds);
 		}
 		catch (BadRequestException ex)
