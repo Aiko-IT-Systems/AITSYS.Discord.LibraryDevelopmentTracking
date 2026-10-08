@@ -51,3 +51,15 @@ public class DiscordLibraryListProvider : IAutocompleteProvider
 		return Task.FromResult(options);
 	}
 }
+
+public class DiscordGuildListProvider : IChoiceProvider
+{
+	public Task<IEnumerable<DiscordApplicationCommandOptionChoice>> Provider()
+	{
+		IEnumerable<DiscordApplicationCommandOptionChoice> options;
+		options = DiscordBot.GuildMapping
+			.Select(x => new DiscordApplicationCommandOptionChoice(x.Key, x.Value))
+			.Take(25);
+		return Task.FromResult(options);
+	}
+}

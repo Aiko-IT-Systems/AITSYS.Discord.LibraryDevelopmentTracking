@@ -43,6 +43,8 @@ public sealed class DiscordBot
 
 	internal WebApplication WebApplication { get; private set; }
 
+	internal static Dictionary<string, string> GuildMapping { get; private set; }
+
 	public DiscordBot(Config config, bool useProxy = false)
 	{
 		ArgumentNullException.ThrowIfNull(config);
@@ -102,7 +104,11 @@ public sealed class DiscordBot
 
 	public void Setup(Config config)
 	{
-		this.DiscordClient.Ready += async (client, args) => _ = await client.Guilds[Configuration.DiscordConfig.DiscordGuild].GetAllMembersAsync();
+		this.DiscordClient.Ready += async (client, args) =>
+		{
+			_ = await client.Guilds[Configuration.DiscordConfig.DiscordGuild].GetAllMembersAsync();
+			GuildMapping = config.DiscordConfig.DiscordGuilds.ToDictionary(g => client.Guilds[g].Name, g => g.ToString());
+		};
 		this.ApplicationCommandsExtension.RegisterGlobalCommands<LibraryTrackingCommands>();
 		this.ApplicationCommandsExtension.RegisterGuildCommands<LibraryHouseKeepingCommands>(1317206872763404478);
 		foreach (var guild in config.DiscordConfig.DiscordGuilds)

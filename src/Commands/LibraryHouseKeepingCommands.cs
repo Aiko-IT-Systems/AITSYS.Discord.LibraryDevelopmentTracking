@@ -610,4 +610,57 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 		var container = new DiscordContainerComponent([titleRow, new DiscordSeparatorComponent(false, SeparatorSpacingSize.Small), userTitleRow, userRow, new DiscordSeparatorComponent(false, SeparatorSpacingSize.Small), roleTitleRow, roleRow, new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large), inviteRow], accentColor: DiscordColor.Green);
 		await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container).WithAllowedMentions(Mentions.None));
 	}
+
+	[SlashCommand("invite_from_guild", "Invite users of another guild to this one")]
+	public async Task InviteGuildAsync(InteractionContext ctx, [ChoiceProvider(typeof(DiscordGuildListProvider)), Option("guild_id", "The guild ID to invite users from")] string guildIdStr)
+	{
+		var interactivity = ctx.Client.GetInteractivity();
+		var guildId = ulong.Parse(guildIdStr);
+		var guild = ctx.Client.Guilds[guildId];
+
+		var modalBuilder = new DiscordInteractionModalBuilder("Locked invite creation");
+		modalBuilder.AddTextDisplayComponent(new($"You can create an invite bound to a bunch of members of a source guild."));
+		modalBuilder.AddTextDisplayComponent(new($"The selected source guild is **{guild.Name}** ({guild.Id})"));
+		modalBuilder.AddLabelComponent(new("Roles", "Optional roles to assign", new DiscordRoleSelectComponent("No roles selected", "roles", 0, 5, required: false)));
+		await ctx.CreateModalResponseAsync(modalBuilder);
+
+		var modalResult = await interactivity.WaitForModalAsync(modalBuilder.CustomId);
+		if (modalResult.TimedOut)
+		{
+			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("You took too long to respond. Please try again.")], accentColor: DiscordColor.Red)));
+			return;
+		}
+
+		await modalResult.Result.Interaction.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Creating invite..")], accentColor: DiscordColor.Yellow)).WithAllowedMentions(Mentions.None));
+
+		var modalComponents = modalResult.Result.Interaction.Data.ModalComponents;
+		var roleSelectInput = (modalComponents
+			.OfType<DiscordLabelComponent>()
+			.FirstOrDefault(x => x.Component is DiscordRoleSelectComponent y && y.CustomId is "roles")?.Component as DiscordRoleSelectComponent)?.SelectedValues;
+
+		var members = await guild.GetAllMembersAsync();
+		List<ulong> userIds = [..members.Select(x => x.Id)];
+
+		var selectedRoleIds = roleSelectInput?.Select(x => Convert.ToUInt64(x));
+		var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxUses: userIds.Count, unique: true, roleIds: selectedRoleIds);
+		await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Locking invite to users..")], accentColor: DiscordColor.Blue)).WithAllowedMentions(Mentions.None));
+		try
+		{
+			await invite.AddTargetUsersAsync(userIds);
+		}
+		catch (BadRequestException ex)
+		{
+			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Failed to lock invite to users ({ex.Code}): {ex.JsonMessage?.BlockCode("json") ?? "Server did not respond with an error"}")], accentColor: DiscordColor.Red)).WithAllowedMentions(Mentions.None));
+			return;
+		}
+
+		var titleRow = new DiscordTextDisplayComponent($"Invite Created Successfully".Header2());
+		var userTitleRow = new DiscordTextDisplayComponent("This invite is locked to the following guild".Header3());
+		var userRow = new DiscordTextDisplayComponent($"**{guild.Name}** ({guild.Id})".BlockCode());
+		var roleTitleRow = new DiscordTextDisplayComponent("The following roles are assigned to the invite".Header3());
+		var roleRow = new DiscordTextDisplayComponent(selectedRoleIds is not null && selectedRoleIds.Any() ? string.Join("\n", selectedRoleIds.Select(x => $"<@&{x}>")) : "No roles assigned");
+		var inviteRow = new DiscordTextDisplayComponent($"Here is the invite link: {invite.Url}");
+		var container = new DiscordContainerComponent([titleRow, new DiscordSeparatorComponent(false, SeparatorSpacingSize.Small), userTitleRow, userRow, new DiscordSeparatorComponent(false, SeparatorSpacingSize.Small), roleTitleRow, roleRow, new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large), inviteRow], accentColor: DiscordColor.Green);
+		await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container).WithAllowedMentions(Mentions.None));
+	}
 }
