@@ -108,6 +108,7 @@ public sealed class DiscordBot
 		{
 			_ = await client.Guilds[Configuration.DiscordConfig.DiscordGuild].GetAllMembersAsync();
 			GuildMapping = config.DiscordConfig.DiscordGuilds.ToDictionary(g => client.Guilds[g].Name, g => g.ToString());
+			GuildMapping.Add(client.Guilds[Configuration.DiscordConfig.DiscordGuild].Name, Configuration.DiscordConfig.DiscordGuild.ToString());
 		};
 		this.ApplicationCommandsExtension.RegisterGlobalCommands<LibraryTrackingCommands>();
 		this.ApplicationCommandsExtension.RegisterGuildCommands<LibraryHouseKeepingCommands>(1317206872763404478);
