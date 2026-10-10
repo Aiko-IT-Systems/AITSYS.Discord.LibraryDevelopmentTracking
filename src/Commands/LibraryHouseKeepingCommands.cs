@@ -502,7 +502,7 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 			if (interaction.Data.CustomId is "skip_roles")
 			{
 				await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents([container.AddComponent(new DiscordTextDisplayComponent("Creating invite.."))]).DisableAllComponents());
-				var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(unique: true, targetUserIds: [user.Id]);
+				var invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxAge: 0, reason: $"Invited created by {ctx.User.Username}", unique: true, targetUserIds: [user.Id]);
 				while (!processed)
 				{
 					var jobStatus = await ctx.Client.GetInviteTargetUsersJobStatusAsync(invite.Code);
@@ -592,7 +592,7 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 		var selectedRoleIds = roleSelectInput?.Select(x => Convert.ToUInt64(x));
 		try
 		{
-			invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(unique: true, roleIds: selectedRoleIds);
+			invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxAge: 0, reason: $"Invited created by {ctx.User.Username}", unique: true, roleIds: selectedRoleIds);
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Locking invite to users..")], accentColor: DiscordColor.Blue)).WithAllowedMentions(Mentions.None));
 
 			await invite.AddTargetUsersAsync(userIds);
@@ -647,7 +647,7 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 		var selectedRoleIds = roleSelectInput?.Select(x => Convert.ToUInt64(x));
 		try
 		{
-			invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(unique: true, roleIds: selectedRoleIds);
+			invite = await ctx.Guild!.GetDefaultChannel()!.CreateInviteAsync(maxAge: 0, reason: $"Invited created by {ctx.User.Username}", unique: true, roleIds: selectedRoleIds);
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Locking invite to users..")], accentColor: DiscordColor.Blue)).WithAllowedMentions(Mentions.None));
 			await invite.AddTargetUsersAsync(userIds);
 		}
