@@ -32,6 +32,9 @@ public class DiscordConfig
 	[JsonProperty("bot_developer_role_id")]
 	public ulong BotDeveloperRoleId { get; set; }
 
+	[JsonProperty("guild_apps_mapping")]
+	public Dictionary<ulong, ulong> GuildAppsMapping { get; set; }
+
 	[JsonProperty("library_role_mapping")]
 	public Dictionary<ulong, string> LibraryRoleMapping { get; set; }
 

@@ -110,6 +110,18 @@ public sealed class DiscordBot
 			GuildMapping = config.DiscordConfig.DiscordGuilds.ToDictionary(g => client.Guilds[g].Name, g => g.ToString());
 			GuildMapping.Add(client.Guilds[Configuration.DiscordConfig.DiscordGuild].Name, Configuration.DiscordConfig.DiscordGuild.ToString());
 		};
+		this.DiscordClient.GuildMemberAdded += async (client, args) =>
+		{
+			if (!Configuration.DiscordConfig.GuildAppsMapping.TryGetValue(args.Guild.Id, out var appRoleId))
+				return;
+
+			var member = args.Member;
+			if (member is null || !member.IsBot)
+				return;
+
+			if (!member.RoleIds.Contains(appRoleId))
+				await member.GrantRoleAsync(args.Guild.GetRole(appRoleId)!, "Automatically granting app role to bot member.");
+		};
 		this.ApplicationCommandsExtension.RegisterGlobalCommands<LibraryTrackingCommands>();
 		this.ApplicationCommandsExtension.RegisterGuildCommands<LibraryHouseKeepingCommands>(1317206872763404478);
 		foreach (var guild in config.DiscordConfig.DiscordGuilds)
