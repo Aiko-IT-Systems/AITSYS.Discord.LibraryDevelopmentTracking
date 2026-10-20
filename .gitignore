@@ -112,3 +112,4 @@ config.json
 **/node_modules/**
 src/wwwroot/app.js
 src/wwwroot/app.js.map
+*.sdcs
