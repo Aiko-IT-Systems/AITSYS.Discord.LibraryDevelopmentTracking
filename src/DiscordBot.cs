@@ -43,7 +43,11 @@ public sealed class DiscordBot
 
 	internal WebApplication WebApplication { get; private set; }
 
-	internal static Dictionary<string, string> GuildMapping { get; private set; }
+	internal static Dictionary<string, string> GuildMapping { get; private set; } = new()
+	{
+	    ["Components Alpha Playground"] = "1317206872763404478",
+	    ["CApp Channels"] = "1546940456288653334"
+	};
 
 	public DiscordBot(Config config, bool useProxy = false)
 	{
@@ -107,8 +111,8 @@ public sealed class DiscordBot
 		this.DiscordClient.Ready += async (client, args) =>
 		{
 			_ = await client.Guilds[Configuration.DiscordConfig.DiscordGuild].GetAllMembersAsync();
-			GuildMapping = config.DiscordConfig.DiscordGuilds.ToDictionary(g => client.Guilds[g].Name, g => g.ToString());
-			GuildMapping.Add(client.Guilds[Configuration.DiscordConfig.DiscordGuild].Name, Configuration.DiscordConfig.DiscordGuild.ToString());
+			//GuildMapping = config.DiscordConfig.DiscordGuilds.ToDictionary(g => client.Guilds[g].Name, g => g.ToString());
+			//GuildMapping.Add(client.Guilds[Configuration.DiscordConfig.DiscordGuild].Name, Configuration.DiscordConfig.DiscordGuild.ToString());
 		};
 		this.DiscordClient.GuildMemberAdded += async (client, args) =>
 		{
