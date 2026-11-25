@@ -14,21 +14,22 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="ScottPlot" Version="5.1.59" />
-		<PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.152.0" />
-		<PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.152.0" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.157.0" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.157.0" />
 		<PackageReference Include="DisCatSharp" Version="10.7.1-nightly-032" />
 		<PackageReference Include="DisCatSharp.ApplicationCommands" Version="10.7.1-nightly-032" />
 		<PackageReference Include="DisCatSharp.Common" Version="10.7.1-nightly-032" />
 		<PackageReference Include="DisCatSharp.Interactivity" Version="10.7.1-nightly-032" />
 		<PackageReference Include="System.Net.Security" Version="4.3.2" />
 		<PackageReference Include="Azure.Identity" Version="1.21.0" />
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
 		<PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
-		<PackageReference Include="Microsoft.Identity.Client" Version="4.89.0" />
-		<PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.22.0" />
-		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
-		<PackageReference Include="NuGet.Protocol" Version="7.9.0" />
-		<PackageReference Include="NuGet.Packaging" Version="7.9.0" />
+		<PackageReference Include="Microsoft.Identity.Client" Version="4.92.0" />
+		<PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.23.0" />
+		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
+		<PackageReference Include="NuGet.Protocol" Version="8.0.0" />
+		<PackageReference Include="NuGet.Packaging" Version="8.0.0" />
+		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
 	</ItemGroup>
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
