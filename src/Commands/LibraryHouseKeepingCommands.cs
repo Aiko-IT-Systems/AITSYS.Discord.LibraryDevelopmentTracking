@@ -238,34 +238,37 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 				return;
 			}
 
-			if (!DiscordBot.NotionRestClient.HasV3Client)
-			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("V3 API not configured. Set `notion_user_token` and `notion_space_id` in config.json.\nThe internal API is required for template duplication.")], accentColor: DiscordColor.DarkRed)));
-				return;
-			}
-
-			// Step 1: Duplicate template via v3 API
+			// Step 1: Create the page and apply its template through Notion's public API
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
-				new DiscordTextDisplayComponent("⏳ Duplicating template (this takes a few seconds)...")
+				new DiscordTextDisplayComponent("⏳ Creating page from template...")
 			], accentColor: DiscordColor.Blue)));
 
-			var pageId = await DiscordBot.NotionRestClient.DuplicatePageAsync(templatePageId, parentPageId);
+			var createdPage = await DiscordBot.NotionRestClient.CreatePageFromTemplateAsync(parentPageId, fullTitle, templatePageId);
+			var pageId = createdPage["id"]?.ToString();
 			if (string.IsNullOrWhiteSpace(pageId))
 			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Failed to duplicate template page. The v3 API token may have expired.\nRefresh `notion_user_token` in config.json and try again.")], accentColor: DiscordColor.DarkRed)));
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent("Notion created a response without a page ID. Check the bot's Notion API access and try again.")], accentColor: DiscordColor.DarkRed)));
 				return;
 			}
 
-			// Step 2: Wait for page to become visible via public API
+			// Step 2: Notion applies template content asynchronously after creating the page.
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
 				new DiscordTextDisplayComponent("Creating Notion...".Header2()),
-				new DiscordTextDisplayComponent("✅ Template duplicated\n⏳ Waiting for page to become available...")
+				new DiscordTextDisplayComponent("✅ Page created\n⏳ Waiting for template content...")
 			], accentColor: DiscordColor.Blue)));
 
-			if (!await DiscordBot.NotionRestClient.WaitForPageVisibilityAsync(pageId))
+			if (!await DiscordBot.NotionRestClient.WaitForTemplateContentAsync(pageId))
 			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([new DiscordTextDisplayComponent($"Duplication succeeded but page is not yet visible via public API.\nPage ID: {pageId}\nTry running `/housekeeping enable_notion` after a few seconds.")], accentColor: DiscordColor.Yellow)));
+				var pageUrl = createdPage["url"]?.ToString();
+				var details = $"The page was created, but Notion did not expose the template content in time.\nPage ID: {pageId}\nCheck that the bot can access both the template page and the destination parent page.";
+				var components = new List<DiscordComponent>
+				{
+					new DiscordTextDisplayComponent(details)
+				};
+				if (!string.IsNullOrWhiteSpace(pageUrl))
+					components.Add(new DiscordActionRowComponent([new DiscordLinkButtonComponent(pageUrl, "Open in Notion")]));
+				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent(components, accentColor: DiscordColor.Yellow)));
 				return;
 			}
 
@@ -293,30 +296,11 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 
 			var (databaseId, dataSourceId) = await DiscordBot.NotionRestClient.FindLibrariesDataSourceAsync(pageId);
 
-			// Step 6: Move page into Phases section
-			var moved = false;
-			if (DiscordBot.NotionRestClient.HasV3Client)
-			{
-				await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent([
-					new DiscordTextDisplayComponent("Creating Notion...".Header2()),
-					new DiscordTextDisplayComponent($"{(renameSuccess ? "✅" : "⚠️")} Page rename\n{(descriptionUpdated ? "✅" : "⚠️")} Description update\n{(!string.IsNullOrWhiteSpace(dataSourceId) ? "✅" : "⚠️")} Libraries database\n⏳ Moving into Phases section...")
-				], accentColor: DiscordColor.Blue)));
-
-				var phasesBlockId = await DiscordBot.NotionRestClient.FindPhasesToggleBlockAsync(parentPageId);
-				if (!string.IsNullOrWhiteSpace(phasesBlockId))
-				{
-					var lastPhase = await DiscordBot.NotionRestClient.FindLastChildBlockAsync(phasesBlockId);
-					moved = await DiscordBot.NotionRestClient.MoveBlockAsync(pageId, parentPageId, phasesBlockId, lastPhase);
-				}
-				else
-					Console.WriteLine("Phases toggle block not found in DLD page");
-			}
-
-			// Step 7: Build result and auto-enable
+			// Step 6: Build result and auto-enable
 			var publicUrl = renameSuccess ? (renameResult["public_url"]?.ToString() ?? renameResult["url"]?.ToString()) : null;
 			var statusParts = new List<string>
 			{
-				"✅ Template duplicated",
+				"✅ Template applied",
 				renameSuccess ? "✅ Page renamed" : "⚠️ Page rename failed (rename manually)",
 				descriptionUpdated ? "✅ Description updated" : "⚠️ Description update failed (update manually)"
 			};
@@ -325,11 +309,7 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 				statusParts.Add("✅ Libraries database found");
 			else
 				statusParts.Add("⚠️ Libraries database not auto-detected (register manually)");
-
-			if (moved)
-				statusParts.Add("✅ Moved into Phases section");
-			else
-				statusParts.Add("⚠️ Could not auto-move into Phases (move manually)");
+			statusParts.Add("ℹ️ Created directly under the configured parent page");
 
 			if (autoEnable && !string.IsNullOrWhiteSpace(databaseId) && !string.IsNullOrWhiteSpace(dataSourceId))
 			{
@@ -365,8 +345,8 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 				responseComponents.Add(new DiscordActionRowComponent([new DiscordLinkButtonComponent(publicUrl, "Open in Notion", emoji: new DiscordComponentEmoji(1414062917137203383))]));
 
 			responseComponents.Add(new DiscordTextDisplayComponent(autoEnable && !string.IsNullOrWhiteSpace(dataSourceId)
-				? $"-# The notion is now available for library tracking commands.{(moved ? "" : "\n-# ⚠️ Move the page into the Phases section in Notion manually.")}"
-				: $"-# Use `/housekeeping enable_notion` to register this notion for tracking.{(moved ? "" : "\n-# ⚠️ Move the page into the Phases section in Notion manually.")}"));
+				? "-# The notion is now available for library tracking commands."
+				: "-# Use `/housekeeping enable_notion` to register this notion for tracking."));
 
 			await modalResult.Result.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(new DiscordContainerComponent(responseComponents, accentColor: DiscordColor.Green)));
 		}
@@ -614,11 +594,19 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 	}
 
 	[SlashCommand("invite_from_guild", "Invite users of another guild to this one")]
-	public async Task InviteGuildAsync(InteractionContext ctx, [ChoiceProvider(typeof(DiscordGuildListProvider)), Option("guild_id", "The guild ID to invite users from")] string guildIdStr)
+	public async Task InviteGuildAsync(InteractionContext ctx, [Autocomplete(typeof(DiscordGuildListProvider)), Option("guild_id", "The guild ID to invite users from", true)] string guildIdStr)
 	{
 		var interactivity = ctx.Client.GetInteractivity();
-		var guildId = ulong.Parse(guildIdStr);
-		var guild = ctx.Client.Guilds[guildId];
+		if (!ulong.TryParse(guildIdStr, out var guildId)
+			|| !DiscordBot.Configuration.DiscordConfig.DiscordGuilds.Append(DiscordBot.Configuration.DiscordConfig.DiscordGuild).Contains(guildId)
+			|| !ctx.Client.Guilds.TryGetValue(guildId, out var guild))
+		{
+			await ctx.CreateResponseAsync(
+				InteractionResponseType.ChannelMessageWithSource,
+				new DiscordInteractionResponseBuilder().AsEphemeral().WithV2Components().AddComponents(
+					new DiscordContainerComponent([new DiscordTextDisplayComponent("Select a configured source guild from the autocomplete suggestions.")], accentColor: DiscordColor.Red)));
+			return;
+		}
 
 		var modalBuilder = new DiscordInteractionModalBuilder("Locked invite creation");
 		modalBuilder.AddTextDisplayComponent(new($"You can create an invite bound to a bunch of members of a source guild."));

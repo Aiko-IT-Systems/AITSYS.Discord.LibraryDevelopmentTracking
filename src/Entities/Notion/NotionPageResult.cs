@@ -32,9 +32,6 @@ public class NotionPageResult
 	[JsonProperty("icon", NullValueHandling = NullValueHandling.Ignore)]
 	public Icon PageIcon;
 
-	[JsonProperty("archived", NullValueHandling = NullValueHandling.Ignore)]
-	public bool? Archived;
-
 	[JsonProperty("in_trash", NullValueHandling = NullValueHandling.Ignore)]
 	public bool? InTrash;
 

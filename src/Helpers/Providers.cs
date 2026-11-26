@@ -52,14 +52,24 @@ public class DiscordLibraryListProvider : IAutocompleteProvider
 	}
 }
 
-public class DiscordGuildListProvider : IChoiceProvider
+public class DiscordGuildListProvider : IAutocompleteProvider
 {
-	public Task<IEnumerable<DiscordApplicationCommandOptionChoice>> Provider()
+	public Task<IEnumerable<DiscordApplicationCommandAutocompleteChoice>> Provider(AutocompleteContext ctx)
 	{
-		IEnumerable<DiscordApplicationCommandOptionChoice> options;
-		options = DiscordBot.GuildMapping
-			.Select(x => new DiscordApplicationCommandOptionChoice(x.Key, x.Value))
+		var config = DiscordBot.Configuration.DiscordConfig;
+		var guildIds = config.DiscordGuilds
+			.Append(config.DiscordGuild)
+			.Distinct();
+		var search = ctx.FocusedOption.Value?.ToString()?.Trim();
+
+		var options = guildIds
+			.Where(ctx.Client.Guilds.ContainsKey)
+			.Select(guildId => ctx.Client.Guilds[guildId])
+			.Where(guild => string.IsNullOrWhiteSpace(search)
+				|| guild.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+				|| guild.Id.ToString().Contains(search, StringComparison.Ordinal))
+			.Select(guild => new DiscordApplicationCommandAutocompleteChoice(guild.Name, guild.Id.ToString()))
 			.Take(25);
-		return Task.FromResult(options);
+		return Task.FromResult(options.AsEnumerable());
 	}
 }

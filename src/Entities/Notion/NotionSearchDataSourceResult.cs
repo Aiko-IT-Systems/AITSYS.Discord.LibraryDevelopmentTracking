@@ -376,9 +376,6 @@ public class NotionSearchDataSourceResult
 		[JsonProperty("public_url", NullValueHandling = NullValueHandling.Ignore)]
 		public string PublicUrl { get; set; }
 
-		[JsonProperty("archived", NullValueHandling = NullValueHandling.Ignore)]
-		public bool? Archived { get; set; }
-
 		[JsonProperty("in_trash", NullValueHandling = NullValueHandling.Ignore)]
 		public bool? InTrash { get; set; }
 	}

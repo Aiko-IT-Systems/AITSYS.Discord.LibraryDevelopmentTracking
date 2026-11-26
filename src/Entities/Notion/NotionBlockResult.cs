@@ -165,9 +165,6 @@ public class NotionBlockResult
 		[JsonProperty("has_children", NullValueHandling = NullValueHandling.Ignore)]
 		public bool? HasChildren;
 
-		[JsonProperty("archived", NullValueHandling = NullValueHandling.Ignore)]
-		public bool? Archived;
-
 		[JsonProperty("in_trash", NullValueHandling = NullValueHandling.Ignore)]
 		public bool? InTrash;
 

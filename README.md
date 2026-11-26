@@ -40,9 +40,9 @@ If you want to use it with other notions, you'll need to modify the code yoursel
 <summary>Getting Started</summary>
 
 ### Prerequisites
-- [.NET 9.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
+- [.NET 10.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
 - A Discord bot token
-- Notion integration token and corresponding IDs
+- Notion API token and corresponding page IDs
 
 ### Setup
 1. **Clone the repository:**
@@ -51,7 +51,8 @@ If you want to use it with other notions, you'll need to modify the code yoursel
    cd AITSYS.Discord.LibraryDevelopmentTracking/src
    ```
 2. **Configure the bot:**
-   - Copy `config.example.json` to `config.json` and fill in your credentials and settings.
+   - Copy `config.example.json` to `config.json` and fill in your credentials and settings. `notion_token` can be a personal access token from Notion's Developer Portal or an internal connection token. Enable read, update, and insert-content capabilities. A personal access token uses its owner's page permissions; an internal connection must be shared with both the template page and destination parent page.
+   - `/housekeeping create_notion` creates a page from the configured template through Notion's public API. The page is created directly under `notion_parent_page_id`; move it into a toggle in Notion manually if desired. The private Notion web API and its session-token settings are no longer used.
 
 3. **Build the project:**
    ```sh

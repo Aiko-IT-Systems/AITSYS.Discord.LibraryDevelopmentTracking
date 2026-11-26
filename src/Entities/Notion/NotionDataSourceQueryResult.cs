@@ -238,9 +238,6 @@ public class NotionDataSourceQueryResult
 		[JsonProperty("parent", NullValueHandling = NullValueHandling.Ignore)]
 		public Parent Parent { get; set; }
 
-		[JsonProperty("archived", NullValueHandling = NullValueHandling.Ignore)]
-		public bool? Archived { get; set; }
-
 		[JsonProperty("in_trash", NullValueHandling = NullValueHandling.Ignore)]
 		public bool? InTrash { get; set; }
 
