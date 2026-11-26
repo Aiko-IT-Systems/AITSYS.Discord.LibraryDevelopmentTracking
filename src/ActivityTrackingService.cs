@@ -141,37 +141,12 @@ internal sealed class ActivityTrackingService(Config config, NotionRestClient no
 
 	private static string GetCustomLinkId(ImplementationTrackingConfig configuredNotion)
 	{
-		var slugBuilder = new StringBuilder();
-		var previousWasSeparator = false;
-		foreach (var character in configuredNotion.Name.Normalize(NormalizationForm.FormKD))
-		{
-			if (character is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9'))
-			{
-				slugBuilder.Append(char.ToLowerInvariant(character));
-				previousWasSeparator = false;
-			}
-			else if (!previousWasSeparator)
-			{
-				slugBuilder.Append('-');
-				previousWasSeparator = true;
-			}
-		}
+		if (!Guid.TryParse(configuredNotion.PageId, out var pageId))
+			throw new InvalidOperationException($"The configured Notion page ID '{configuredNotion.PageId}' is not a valid GUID.");
 
-		var slug = slugBuilder.ToString().Trim('-');
-		if (string.IsNullOrWhiteSpace(slug))
-			slug = "tracking";
-
-		var pageSuffix = new string([.. configuredNotion.PageId.Where(char.IsLetterOrDigit)]);
-		pageSuffix = pageSuffix.Length > 8 ? pageSuffix[..8].ToLowerInvariant() : pageSuffix.ToLowerInvariant();
-		if (string.IsNullOrWhiteSpace(pageSuffix))
-			pageSuffix = "notion";
-
-		const string prefix = "notion-";
-		var maximumSlugLength = 64 - prefix.Length - pageSuffix.Length - 1;
-		if (slug.Length > maximumSlugLength)
-			slug = slug[..maximumSlugLength].TrimEnd('-');
-
-		return $"{prefix}{slug}-{pageSuffix}";
+		// A compact UUID keeps the custom ID under Discord's 64-character limit
+		// and makes it independent of the editable page title.
+		return $"notion-{pageId:N}".ToLowerInvariant();
 	}
 
 	private static LibraryStatistic ToLibrary(NotionDataSourceQueryResult.Result result, string fallbackStatus)
