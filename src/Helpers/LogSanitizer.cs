@@ -8,10 +8,9 @@ internal static class LogSanitizer
 {
 	internal static string Sanitize(string? value)
 	{
-		if (string.IsNullOrEmpty(value))
-			return value ?? string.Empty;
-
-		return value
+		return string.IsNullOrEmpty(value)
+			? value ?? string.Empty
+			: value
 			.Replace("\r", "\\r", StringComparison.Ordinal)
 			.Replace("\n", "\\n", StringComparison.Ordinal)
 			.Replace("\0", "\\0", StringComparison.Ordinal);

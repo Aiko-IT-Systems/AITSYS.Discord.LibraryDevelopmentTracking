@@ -104,7 +104,25 @@ public sealed class DiscordBot
 	{
 		this.DiscordClient.Ready += async (client, args) =>
 		{
-			_ = await client.Guilds[Configuration.DiscordConfig.DiscordGuild].GetAllMembersAsync();
+			try
+			{
+				_ = await client.Guilds[Configuration.DiscordConfig.DiscordGuild].GetAllMembersAsync();
+			}
+			catch (Exception ex)
+			{
+				this.DiscordClient.Logger.LogWarning(ex, "Failed to fetch members for guild {GuildId}.", Configuration.DiscordConfig.DiscordGuild);
+			}
+			foreach (var guild in Configuration.DiscordConfig.DiscordGuilds)
+			{
+				try
+				{
+					_ = await client.Guilds[guild].GetAllMembersAsync();
+				}
+				catch (Exception ex)
+				{
+					this.DiscordClient.Logger.LogWarning(ex, "Failed to fetch members for guild {GuildId}.", guild);
+				}
+			}
 		};
 		this.DiscordClient.GuildMemberAdded += async (client, args) =>
 		{
@@ -743,13 +761,7 @@ public sealed class DiscordBot
 			|| path.StartsWithSegments("/api/auth/logout", StringComparison.OrdinalIgnoreCase);
 
 	private static async Task<bool> CanManageNotionsAsync(HttpContext context, ActivityAuthService auth)
-	{
-		if (auth.IsLocalDevAllowed(context.Request))
-			return true;
-
-		return context.Items[typeof(ActivitySession)] is ActivitySession session
-			&& await auth.CanManageNotionsAsync(session);
-	}
+		=> auth.IsLocalDevAllowed(context.Request) || (context.Items[typeof(ActivitySession)] is ActivitySession session && await auth.CanManageNotionsAsync(session));
 
 	private static bool IsAlwaysAnonymousStaticPath(PathString path)
 		=> path.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase)

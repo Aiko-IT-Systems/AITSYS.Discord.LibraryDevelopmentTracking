@@ -329,10 +329,9 @@ public sealed class NotionRestClient
 
 		using var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/pages", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
 		var content = await result.Content.ReadAsStringAsync();
-		if (!result.IsSuccessStatusCode)
-			throw new HttpRequestException($"Notion page creation from template failed ({(int)result.StatusCode} {result.StatusCode}): {content}");
-
-		return JObject.Parse(content);
+		return !result.IsSuccessStatusCode
+			? throw new HttpRequestException($"Notion page creation from template failed ({(int)result.StatusCode} {result.StatusCode}): {content}")
+			: JObject.Parse(content);
 	}
 
 	/// <summary>
