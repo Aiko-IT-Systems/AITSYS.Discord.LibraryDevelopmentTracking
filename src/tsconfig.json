@@ -4,6 +4,7 @@
 		"target": "ES2021",
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
+		"jsx": "react-jsx",
 		"lib": [
 			"DOM",
 			"ES2021"
@@ -12,9 +13,7 @@
 		"noEmit": true,
 		"skipLibCheck": true
 	},
-	"include": [
-		"wwwroot/**/*.ts"
-	],
+	"include": ["wwwroot/**/*.ts", "wwwroot/**/*.tsx"],
 	"exclude": [
 		"wwwroot/app.js",
 		"wwwroot/app.js.map",

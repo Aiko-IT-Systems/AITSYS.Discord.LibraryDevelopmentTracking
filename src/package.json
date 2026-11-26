@@ -1,17 +1,23 @@
 {
-	"name": "translation-tool",
+	"name": "discord-library-development-frontend",
 	"private": true,
 	"dependencies": {
-		"@discord/embedded-app-sdk": "2.5.0",
-		"chart.js": "4.5.1"
+		"@discord/embedded-app-sdk": "3.0.0-beta.4",
+		"@discord/mana": "file:vendor/discord-mana",
+		"chart.js": "4.5.1",
+		"react": "19.3.1",
+		"react-dom": "19.3.1"
 	},
 	"devDependencies": {
+		"@types/react": "19.3.3",
+		"@types/react-dom": "19.3.0",
 		"esbuild": "0.28.1",
 		"eslint": "10.15.0",
 		"typescript": "5.9.3"
 	},
 	"scripts": {
-		"build": "esbuild wwwroot/app.ts --bundle --format=iife --platform=browser --target=es2022 --sourcemap --minify --outfile=wwwroot/app.js",
-		"build:dev": "esbuild wwwroot/app.ts --bundle --format=iife --platform=browser --target=es2022 --sourcemap --outfile=wwwroot/app.js"
+		"build": "esbuild wwwroot/main.tsx --bundle --format=iife --platform=browser --target=es2022 --jsx=automatic --loader:.woff2=file --asset-names=assets/[name]-[hash] --sourcemap --minify --outfile=wwwroot/app.js",
+		"build:dev": "esbuild wwwroot/main.tsx --bundle --format=iife --platform=browser --target=es2022 --jsx=automatic --loader:.woff2=file --asset-names=assets/[name]-[hash] --sourcemap --outfile=wwwroot/app.js",
+		"check": "tsc --noEmit"
 	}
 }

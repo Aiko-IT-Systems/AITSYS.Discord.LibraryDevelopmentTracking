@@ -3,6 +3,7 @@ WORKDIR /src
 
 COPY package.json ./
 COPY package-lock.json ./
+COPY vendor ./vendor
 RUN npm ci
 
 COPY . ./
@@ -18,6 +19,8 @@ RUN dotnet restore AITSYS.Discord.LibraryDevelopmentTracking.csproj --no-cache
 COPY . ./
 COPY --from=web-build /src/wwwroot/app.js ./wwwroot/app.js
 COPY --from=web-build /src/wwwroot/app.js.map ./wwwroot/app.js.map
+COPY --from=web-build /src/wwwroot/app.css ./wwwroot/app.css
+COPY --from=web-build /src/wwwroot/app.css.map ./wwwroot/app.css.map
 RUN dotnet publish AITSYS.Discord.LibraryDevelopmentTracking.csproj -c ${BUILD_CONFIGURATION} -o /app/publish /p:UseAppHost=false /p:LangVersion=preview
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
