@@ -159,6 +159,7 @@ public sealed class DiscordBot
 		builder.Services.AddSingleton<ActivitySessionStore>();
 		builder.Services.AddSingleton<ActivityAuthService>();
 		builder.Services.AddSingleton<ActivityTrackingService>();
+		builder.Services.AddSingleton<NotionManagementService>();
 		builder.Services.AddSingleton<ActivityShareService>();
 		builder.Services.AddHealthChecks();
 		builder.Services.ConfigureHttpJsonOptions(o =>
@@ -432,6 +433,167 @@ public sealed class DiscordBot
 		this.WebApplication.MapGet("/api/tracking/notions", (ActivityTrackingService tracking) =>
 			Results.Json(tracking.GetTrackedNotions()));
 
+		this.WebApplication.MapGet("/api/admin/notions", async (
+			HttpContext context,
+			ActivityAuthService auth,
+			NotionManagementService management,
+			ILogger<DiscordBot> logger) =>
+		{
+			if (!await CanManageNotionsAsync(context, auth))
+				return Results.Json(new { message = "Notion management is limited to the bot administrator and Discord staff." }, statusCode: StatusCodes.Status403Forbidden);
+
+			try
+			{
+				return Results.Json(await management.GetNotionsAsync());
+			}
+			catch (Exception ex)
+			{
+				logger.LogWarning(ex, "Failed to discover Notion trackers for Activity administration.");
+				return Results.Problem("Notion trackers could not be discovered right now.", statusCode: StatusCodes.Status502BadGateway);
+			}
+		});
+
+		this.WebApplication.MapPost("/api/admin/notions", async (
+			HttpContext context,
+			CreateNotionRequest payload,
+			ActivityAuthService auth,
+			NotionManagementService management,
+			ILogger<DiscordBot> logger) =>
+		{
+			if (!await CanManageNotionsAsync(context, auth))
+				return Results.Json(new { message = "Notion management is limited to the bot administrator and Discord staff." }, statusCode: StatusCodes.Status403Forbidden);
+
+			if (payload is null)
+				return Results.BadRequest(new { message = "A title and description are required." });
+
+			var title = payload.Title?.Trim();
+			var description = payload.Description?.Trim();
+			if (string.IsNullOrWhiteSpace(title) || title.Length > 100
+				|| string.IsNullOrWhiteSpace(description) || description.Length > 500)
+				return Results.BadRequest(new { message = "A title of 1–100 characters and description of 1–500 characters are required." });
+
+			try
+			{
+				var created = await management.CreateAsync(title, description, payload.AutoEnable);
+				return Results.Json(created, statusCode: StatusCodes.Status201Created);
+			}
+			catch (Exception ex)
+			{
+				logger.LogWarning(ex, "Failed to create a Notion tracker from the configured template.");
+				return Results.Problem("The Notion tracker could not be created. Check the bot host logs for details.", statusCode: StatusCodes.Status502BadGateway);
+			}
+		});
+
+		this.WebApplication.MapPost("/api/admin/notions/{pageId}/enable", async (
+			HttpContext context,
+			string pageId,
+			ActivityAuthService auth,
+			NotionManagementService management,
+			ILogger<DiscordBot> logger) =>
+		{
+			if (!await CanManageNotionsAsync(context, auth))
+				return Results.Json(new { message = "Notion management is limited to the bot administrator and Discord staff." }, statusCode: StatusCodes.Status403Forbidden);
+
+			try
+			{
+				await management.EnableAsync(pageId);
+				return Results.NoContent();
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return Results.NotFound(new { message = ex.Message });
+			}
+			catch (Exception ex)
+			{
+				logger.LogWarning(ex, "Failed to enable Notion tracker {PageId}.", pageId);
+				return Results.Problem("The Notion tracker could not be enabled.", statusCode: StatusCodes.Status502BadGateway);
+			}
+		});
+
+		this.WebApplication.MapPost("/api/admin/notions/{pageId}/disable", async (
+			HttpContext context,
+			string pageId,
+			ActivityAuthService auth,
+			NotionManagementService management,
+			ILogger<DiscordBot> logger) =>
+		{
+			if (!await CanManageNotionsAsync(context, auth))
+				return Results.Json(new { message = "Notion management is limited to the bot administrator and Discord staff." }, statusCode: StatusCodes.Status403Forbidden);
+
+			try
+			{
+				await management.DisableAsync(pageId);
+				return Results.NoContent();
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return Results.NotFound(new { message = ex.Message });
+			}
+			catch (Exception ex)
+			{
+				logger.LogWarning(ex, "Failed to disable Notion tracker {PageId}.", pageId);
+				return Results.Problem("The Notion tracker could not be disabled.", statusCode: StatusCodes.Status500InternalServerError);
+			}
+		});
+
+		this.WebApplication.MapGet("/api/admin/notions/{pageId}/metadata", async (
+			HttpContext context,
+			string pageId,
+			ActivityAuthService auth,
+			NotionManagementService management,
+			ILogger<DiscordBot> logger) =>
+		{
+			if (!await CanManageNotionsAsync(context, auth))
+				return Results.Json(new { message = "Notion management is limited to the bot administrator and Discord staff." }, statusCode: StatusCodes.Status403Forbidden);
+
+			try
+			{
+				return Results.Json(await management.GetMetadataAsync(pageId));
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return Results.NotFound(new { message = ex.Message });
+			}
+			catch (Exception ex)
+			{
+				logger.LogWarning(ex, "Failed to retrieve metadata for Notion tracker {PageId}.", pageId);
+				return Results.Problem("Notion metadata could not be loaded.", statusCode: StatusCodes.Status502BadGateway);
+			}
+		});
+
+		this.WebApplication.MapPut("/api/admin/notions/{pageId}/metadata", async (
+			HttpContext context,
+			string pageId,
+			UpdateNotionMetadataRequest payload,
+			ActivityAuthService auth,
+			NotionManagementService management,
+			ILogger<DiscordBot> logger) =>
+		{
+			if (!await CanManageNotionsAsync(context, auth))
+				return Results.Json(new { message = "Notion management is limited to the bot administrator and Discord staff." }, statusCode: StatusCodes.Status403Forbidden);
+
+			var title = payload?.Title?.Trim();
+			var description = payload?.Description?.Trim();
+			if (string.IsNullOrWhiteSpace(title) || title.Length > 2000
+				|| string.IsNullOrWhiteSpace(description) || description.Length > 2000)
+				return Results.BadRequest(new { message = "A title and description of 1–2,000 characters are required." });
+
+			try
+			{
+				var result = await management.UpdateMetadataAsync(pageId, title, description);
+				return Results.Json(result);
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return Results.NotFound(new { message = ex.Message });
+			}
+			catch (Exception ex)
+			{
+				logger.LogWarning(ex, "Failed to update title or description for Notion tracker {PageId}.", pageId);
+				return Results.Problem("The Notion tracker could not be updated. Check the bot host logs for details.", statusCode: StatusCodes.Status502BadGateway);
+			}
+		});
+
 		this.WebApplication.MapGet("/api/tracking/notions/{pageId}", async (string pageId, ActivityTrackingService tracking, ILogger<DiscordBot> logger, bool refresh = false) =>
 		{
 			try
@@ -580,6 +742,15 @@ public sealed class DiscordBot
 			|| path.StartsWithSegments("/api/auth/session", StringComparison.OrdinalIgnoreCase)
 			|| path.StartsWithSegments("/api/auth/logout", StringComparison.OrdinalIgnoreCase);
 
+	private static async Task<bool> CanManageNotionsAsync(HttpContext context, ActivityAuthService auth)
+	{
+		if (auth.IsLocalDevAllowed(context.Request))
+			return true;
+
+		return context.Items[typeof(ActivitySession)] is ActivitySession session
+			&& await auth.CanManageNotionsAsync(session);
+	}
+
 	private static bool IsAlwaysAnonymousStaticPath(PathString path)
 		=> path.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase)
 			|| path.Equals("/discord.png", StringComparison.OrdinalIgnoreCase)
@@ -640,6 +811,8 @@ public sealed class DiscordBot
 		=> new([.. value.Where(character => char.IsLetterOrDigit(character) || character is '-' or '_')]);
 
 	private sealed record UpdateLibraryRequest(string LibraryName, string Status, string? PrCommit, string? Version, string? Notes);
+	private sealed record CreateNotionRequest(string Title, string Description, bool AutoEnable = true);
+	private sealed record UpdateNotionMetadataRequest(string Title, string Description);
 
 	private static Task WriteErrorPageAsync(HttpContext context, int statusCode, string title, string message)
 	{

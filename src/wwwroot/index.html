@@ -59,6 +59,13 @@
 								/>
 							</svg>
 						</button>
+						<button
+							id="manageNotionsButton"
+							class="button button-secondary admin-manage-button hidden"
+							type="button"
+						>
+							Manage
+						</button>
 					</div>
 
 					<nav
@@ -343,6 +350,64 @@
 				<footer class="edit-dialog-actions">
 					<button id="cancelEditButtonFooter" class="button button-secondary" type="button">Cancel</button>
 					<button id="submitEditButton" class="button button-primary" type="submit">Update library</button>
+				</footer>
+			</form>
+		</dialog>
+
+		<dialog id="manageNotionsDialog" class="admin-dialog">
+			<section class="admin-dialog-content">
+				<header class="edit-dialog-header">
+					<div>
+						<span class="page-overline">Staff tools</span>
+						<h2>Manage Notion trackers</h2>
+					</div>
+					<button id="closeManageNotionsButton" class="icon-button" type="button" aria-label="Close" title="Close">×</button>
+				</header>
+
+				<section class="admin-create-section">
+					<h3>Create from template</h3>
+					<form id="createNotionForm" class="admin-create-form">
+						<label>Title<input id="createNotionTitle" type="text" maxlength="100" placeholder="e.g. Phase 5" required /></label>
+						<label>Description<textarea id="createNotionDescription" rows="3" maxlength="500" placeholder="What this tracker covers" required></textarea></label>
+						<label class="admin-checkbox"><input id="createNotionAutoEnable" type="checkbox" checked /> Enable this tracker for library commands</label>
+						<button id="createNotionButton" class="button button-primary" type="submit">Create tracker</button>
+					</form>
+				</section>
+
+				<div class="admin-list-header">
+					<div>
+					<h3>Enabled</h3>
+					<p>Available to library tracking commands</p>
+				</div>
+					<button id="refreshAdminNotionsButton" class="button button-secondary" type="button">Refresh</button>
+				</div>
+				<div id="enabledNotionsList" class="admin-notion-list"></div>
+
+				<div class="admin-list-header admin-disabled-header">
+					<div>
+					<h3>Disabled and discoverable</h3>
+					<p>Known disabled trackers and matching Notion pages not enabled yet</p>
+				</div>
+				</div>
+				<div id="disabledNotionsList" class="admin-notion-list"></div>
+				<p id="notionAdminStatus" class="admin-status" role="status" aria-live="polite"></p>
+			</section>
+		</dialog>
+
+		<dialog id="editNotionDialog" class="edit-dialog">
+			<form id="editNotionForm" method="dialog">
+				<header class="edit-dialog-header">
+					<div>
+						<span class="page-overline">Notion page details</span>
+						<h2>Edit tracker</h2>
+					</div>
+					<button id="closeEditNotionButton" class="icon-button" type="button" aria-label="Close" title="Close">×</button>
+				</header>
+				<label>Title<input id="editNotionTitle" type="text" maxlength="2000" required /></label>
+				<label>Description<textarea id="editNotionDescription" rows="5" maxlength="2000" required></textarea></label>
+				<footer class="edit-dialog-actions">
+					<button id="cancelEditNotionButton" class="button button-secondary" type="button">Cancel</button>
+					<button id="saveNotionMetadataButton" class="button button-primary" type="submit">Save changes</button>
 				</footer>
 			</form>
 		</dialog>

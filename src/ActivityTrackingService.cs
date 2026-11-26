@@ -41,6 +41,9 @@ internal sealed class ActivityTrackingService(Config config, NotionRestClient no
 		return configuredNotion is null ? null : GetCustomLinkId(configuredNotion);
 	}
 
+	public void Invalidate(string pageId)
+		=> this._cache.Remove($"activity-tracking:notion:{pageId}");
+
 	public async Task<TrackedNotionDetails?> GetTrackedNotionAsync(string pageId, bool forceRefresh = false)
 	{
 		var configuredNotion = (this._config.NotionConfig.ImplementationTrackingConfig ?? [])
@@ -118,7 +121,8 @@ internal sealed class ActivityTrackingService(Config config, NotionRestClient no
 			.ToList();
 
 		var callout = blocks.Results?
-			.FirstOrDefault(block => string.Equals(block.Type, "callout", StringComparison.OrdinalIgnoreCase))
+			.FirstOrDefault(block => string.Equals(block.Type, "callout", StringComparison.OrdinalIgnoreCase)
+				&& string.Equals(block.Callout?.Icon?.Emoji, "💡", StringComparison.Ordinal))
 			?.Callout;
 		var title = JoinText(page.PageProperties?.Title?.Titles) ?? configuredNotion.Name;
 		var description = JoinText(callout?.RichText);

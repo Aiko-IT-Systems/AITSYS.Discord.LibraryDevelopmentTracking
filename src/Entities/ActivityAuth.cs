@@ -233,6 +233,15 @@ internal sealed class ActivityAuthService(DiscordClient discordClient, Config co
 			.Any(allowedLibrary => string.Equals(allowedLibrary, libraryName, StringComparison.OrdinalIgnoreCase));
 	}
 
+	public async Task<bool> CanManageNotionsAsync(ActivitySession session)
+	{
+		if (session.UserId is 856780995629154305)
+			return true;
+
+		var user = await this._discordClient.GetUserAsync(session.UserId);
+		return user.IsStaff;
+	}
+
 	private DiscordOAuth2Client GetOrCreateOAuthClient(ulong applicationId)
 	{
 		lock (this._gate)

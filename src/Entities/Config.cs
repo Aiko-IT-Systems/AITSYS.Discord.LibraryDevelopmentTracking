@@ -75,7 +75,10 @@ public class NotionConfig
 	public string NotionApiVersion { get; set; }
 
 	[JsonProperty("implementation_tracking_config")]
-	public List<ImplementationTrackingConfig> ImplementationTrackingConfig { get; set; }
+	public List<ImplementationTrackingConfig> ImplementationTrackingConfig { get; set; } = [];
+
+	[JsonProperty("disabled_implementation_tracking_config")]
+	public List<ImplementationTrackingConfig> DisabledImplementationTrackingConfig { get; set; } = [];
 
 	[JsonProperty("notion_template_page_id")]
 	public string NotionTemplatePageId { get; set; }

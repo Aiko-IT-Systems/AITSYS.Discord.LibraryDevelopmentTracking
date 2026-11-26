@@ -99,6 +99,7 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 				DataSourceId = selectedDataSourceId
 			};
 
+			DiscordBot.Configuration.NotionConfig.DisabledImplementationTrackingConfig.RemoveAll(x => string.Equals(x.PageId, rPageId, StringComparison.OrdinalIgnoreCase));
 			DiscordBot.Configuration.NotionConfig.ImplementationTrackingConfig.Add(newEntry);
 
 			var configJson = Newtonsoft.Json.JsonConvert.SerializeObject(DiscordBot.Configuration, Newtonsoft.Json.Formatting.Indented);
@@ -170,6 +171,8 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 			}
 
 			enabledNotions.Remove(entry);
+			DiscordBot.Configuration.NotionConfig.DisabledImplementationTrackingConfig.RemoveAll(x => string.Equals(x.PageId, entry.PageId, StringComparison.OrdinalIgnoreCase));
+			DiscordBot.Configuration.NotionConfig.DisabledImplementationTrackingConfig.Add(entry);
 
 			var configJson = Newtonsoft.Json.JsonConvert.SerializeObject(DiscordBot.Configuration, Newtonsoft.Json.Formatting.Indented);
 			await File.WriteAllTextAsync("config.json", configJson);
@@ -325,6 +328,19 @@ public class LibraryHouseKeepingCommands : ApplicationCommandsModule
 				var configJson = Newtonsoft.Json.JsonConvert.SerializeObject(DiscordBot.Configuration, Newtonsoft.Json.Formatting.Indented);
 				await File.WriteAllTextAsync("config.json", configJson);
 				statusParts.Add("✅ Registered in config");
+			}
+			else if (!autoEnable && !string.IsNullOrWhiteSpace(databaseId) && !string.IsNullOrWhiteSpace(dataSourceId))
+			{
+				DiscordBot.Configuration.NotionConfig.DisabledImplementationTrackingConfig.Add(new ImplementationTrackingConfig
+				{
+					Name = fullTitle,
+					PageId = pageId,
+					DatabaseId = databaseId,
+					DataSourceId = dataSourceId
+				});
+				var configJson = Newtonsoft.Json.JsonConvert.SerializeObject(DiscordBot.Configuration, Newtonsoft.Json.Formatting.Indented);
+				await File.WriteAllTextAsync("config.json", configJson);
+				statusParts.Add("ℹ️ Saved as disabled in config");
 			}
 			else if (autoEnable)
 				statusParts.Add("⚠️ Auto-enable skipped (could not detect data source)");

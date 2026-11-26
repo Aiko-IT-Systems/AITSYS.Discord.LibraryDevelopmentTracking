@@ -35,6 +35,22 @@ Chart.register(
 );
 
 type NotionListItem = { id: string; name: string; customId: string };
+type AdminNotion = {
+	id: string;
+	name: string;
+	databaseId?: string | null;
+	dataSourceId: string;
+	enabled: boolean;
+	isTemplate: boolean;
+};
+type NotionMetadata = { title: string; description: string };
+type NotionCreationResponse = {
+	id: string;
+	name: string;
+	enabled: boolean;
+	titleUpdated: boolean;
+	descriptionUpdated: boolean;
+};
 type StatusCount = { name: string; count: number };
 type LanguageBreakdown = {
 	language: string;
@@ -92,6 +108,8 @@ const state: {
 	requestId: number;
 	statusChart: any;
 	languageChart: any;
+	adminNotions: AdminNotion[];
+	canManageNotions: boolean;
 } = {
 	session: null,
 	notions: [],
@@ -100,6 +118,8 @@ const state: {
 	requestId: 0,
 	statusChart: null,
 	languageChart: null,
+	adminNotions: [],
+	canManageNotions: false,
 };
 
 const quickLinkProvisioning = new Map<string, Promise<void>>();
@@ -121,6 +141,7 @@ const appShell = el("appShell"),
 	errorTitle = el("errorTitle"),
 	errorMessage = el("errorMessage");
 const refreshButton = el("refreshNotionsButton") as HTMLButtonElement,
+	manageNotionsButton = el("manageNotionsButton") as HTMLButtonElement,
 	viewerName = el("viewerName"),
 	viewerMeta = el("viewerMeta"),
 	viewerAvatar = el("viewerAvatar") as HTMLImageElement,
@@ -151,14 +172,50 @@ const libraryCount = el("libraryCount"),
 	cancelEditButton = el("cancelEditButton") as HTMLButtonElement,
 	cancelEditButtonFooter = el("cancelEditButtonFooter") as HTMLButtonElement,
 	submitEditButton = el("submitEditButton") as HTMLButtonElement;
+const manageNotionsDialog = el("manageNotionsDialog") as HTMLDialogElement,
+	closeManageNotionsButton = el("closeManageNotionsButton") as HTMLButtonElement,
+	refreshAdminNotionsButton = el("refreshAdminNotionsButton") as HTMLButtonElement,
+	enabledNotionsList = el("enabledNotionsList"),
+	disabledNotionsList = el("disabledNotionsList"),
+	notionAdminStatus = el("notionAdminStatus"),
+	createNotionForm = el("createNotionForm") as HTMLFormElement,
+	createNotionTitle = el("createNotionTitle") as HTMLInputElement,
+	createNotionDescription = el("createNotionDescription") as HTMLTextAreaElement,
+	createNotionAutoEnable = el("createNotionAutoEnable") as HTMLInputElement,
+	createNotionButton = el("createNotionButton") as HTMLButtonElement,
+	editNotionDialog = el("editNotionDialog") as HTMLDialogElement,
+	editNotionForm = el("editNotionForm") as HTMLFormElement,
+	closeEditNotionButton = el("closeEditNotionButton") as HTMLButtonElement,
+	cancelEditNotionButton = el("cancelEditNotionButton") as HTMLButtonElement,
+	editNotionTitle = el("editNotionTitle") as HTMLInputElement,
+	editNotionDescription = el("editNotionDescription") as HTMLTextAreaElement,
+	saveNotionMetadataButton = el("saveNotionMetadataButton") as HTMLButtonElement;
 
 let editingNotionId: string | null = null;
 let editingLibraryName: string | null = null;
+let editingMetadataNotionId: string | null = null;
 
 void bootstrap();
 
 cancelEditButton.addEventListener("click", () => editDialog.close());
 cancelEditButtonFooter.addEventListener("click", () => editDialog.close());
+manageNotionsButton.addEventListener("click", () => {
+	if (!state.canManageNotions) return;
+	manageNotionsDialog.showModal();
+	void loadAdminNotions();
+});
+closeManageNotionsButton.addEventListener("click", () => manageNotionsDialog.close());
+refreshAdminNotionsButton.addEventListener("click", () => void loadAdminNotions());
+createNotionForm.addEventListener("submit", (event) => {
+	event.preventDefault();
+	void createNotionFromTemplate();
+});
+closeEditNotionButton.addEventListener("click", () => editNotionDialog.close());
+cancelEditNotionButton.addEventListener("click", () => editNotionDialog.close());
+editNotionForm.addEventListener("submit", (event) => {
+	event.preventDefault();
+	void submitNotionMetadata();
+});
 editForm.addEventListener("submit", (event) => {
 	event.preventDefault();
 	void submitLibraryEdit();
@@ -724,6 +781,145 @@ async function submitLibraryEdit() {
 		submitEditButton.disabled = false;
 	}
 }
+
+async function loadAdminNotions() {
+	if (!state.canManageNotions) return;
+	refreshAdminNotionsButton.disabled = true;
+	setNotionAdminStatus("Loading enabled and disabled trackers…");
+	try {
+		state.adminNotions = await fetchJson<AdminNotion[]>("/api/admin/notions");
+		renderAdminNotions();
+		setNotionAdminStatus("");
+	} catch (error) {
+		setNotionAdminStatus("Tracker management could not be loaded.");
+		showError(error, "Couldn't load Notion management");
+	} finally {
+		refreshAdminNotionsButton.disabled = false;
+	}
+}
+
+function renderAdminNotions() {
+	enabledNotionsList.replaceChildren();
+	disabledNotionsList.replaceChildren();
+	const visibleNotions = state.adminNotions.filter((notion) => !notion.isTemplate);
+	const enabled = visibleNotions.filter((notion) => notion.enabled);
+	const disabled = visibleNotions.filter((notion) => !notion.enabled);
+	if (!enabled.length) appendEmptyAdminList(enabledNotionsList, "No enabled trackers.");
+	if (!disabled.length) appendEmptyAdminList(disabledNotionsList, "No disabled or discoverable trackers.");
+	for (const notion of enabled) enabledNotionsList.append(createAdminNotionRow(notion));
+	for (const notion of disabled) disabledNotionsList.append(createAdminNotionRow(notion));
+}
+
+function appendEmptyAdminList(container: HTMLElement, message: string) {
+	const empty = document.createElement("p");
+	empty.className = "admin-status";
+	empty.textContent = message;
+	container.append(empty);
+}
+
+function createAdminNotionRow(notion: AdminNotion) {
+	const row = document.createElement("div");
+	row.className = "admin-notion-row";
+	const copy = document.createElement("div");
+	copy.className = "admin-notion-copy";
+	const title = document.createElement("strong");
+	title.textContent = notion.name;
+	const pageId = document.createElement("span");
+	pageId.textContent = notion.id;
+	copy.append(title, pageId);
+	const actions = document.createElement("div");
+	actions.className = "admin-notion-actions";
+	const edit = document.createElement("button");
+	edit.type = "button";
+	edit.className = "button button-secondary";
+	edit.textContent = "Edit";
+	edit.addEventListener("click", () => void openNotionMetadataEditor(notion));
+	const toggle = document.createElement("button");
+	toggle.type = "button";
+	toggle.className = notion.enabled ? "button button-secondary" : "button button-primary";
+	toggle.textContent = notion.enabled ? "Disable" : "Enable";
+	toggle.addEventListener("click", () => void toggleNotion(notion, toggle));
+	actions.append(edit, toggle);
+	row.append(copy, actions);
+	return row;
+}
+
+async function toggleNotion(notion: AdminNotion, button: HTMLButtonElement) {
+	button.disabled = true;
+	try {
+		await fetchJson<void>(`/api/admin/notions/${encodeURIComponent(notion.id)}/${notion.enabled ? "disable" : "enable"}`, { method: "POST" });
+		await Promise.all([loadNotions(true), loadAdminNotions()]);
+		setNotionAdminStatus(`${notion.name} ${notion.enabled ? "disabled" : "enabled"}.`);
+	} catch (error) {
+		showError(error, `Couldn't ${notion.enabled ? "disable" : "enable"} this tracker`);
+	} finally {
+		button.disabled = false;
+	}
+}
+
+async function createNotionFromTemplate() {
+	createNotionButton.disabled = true;
+	setNotionAdminStatus("Creating the Notion page and applying its template…");
+	try {
+		const created = await fetchJson<NotionCreationResponse>("/api/admin/notions", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				title: createNotionTitle.value.trim(),
+				description: createNotionDescription.value.trim(),
+				autoEnable: createNotionAutoEnable.checked,
+			}),
+		});
+		createNotionForm.reset();
+		await Promise.all([loadNotions(true), loadAdminNotions()]);
+		setNotionAdminStatus(`${created.name} created${created.enabled ? " and enabled" : " as disabled"}.${!created.titleUpdated || !created.descriptionUpdated ? " Check the title and description in Notion." : ""}`);
+	} catch (error) {
+		showError(error, "Couldn't create a Notion tracker");
+		setNotionAdminStatus("Tracker creation failed. Check the error above.");
+	} finally {
+		createNotionButton.disabled = false;
+	}
+}
+
+async function openNotionMetadataEditor(notion: AdminNotion) {
+	try {
+		const metadata = await fetchJson<NotionMetadata>(`/api/admin/notions/${encodeURIComponent(notion.id)}/metadata`);
+		editingMetadataNotionId = notion.id;
+		editNotionTitle.value = metadata.title;
+		editNotionDescription.value = metadata.description;
+		editNotionDialog.showModal();
+	} catch (error) {
+		showError(error, "Couldn't load this tracker's details");
+	}
+}
+
+async function submitNotionMetadata() {
+	if (!editingMetadataNotionId) return;
+	saveNotionMetadataButton.disabled = true;
+	try {
+		const result = await fetchJson<{ titleUpdated: boolean; descriptionUpdated: boolean }>(`/api/admin/notions/${encodeURIComponent(editingMetadataNotionId)}/metadata`, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ title: editNotionTitle.value.trim(), description: editNotionDescription.value.trim() }),
+		});
+		if (result.titleUpdated && result.descriptionUpdated) {
+			editNotionDialog.close();
+		}
+		await Promise.all([loadNotions(true), loadAdminNotions()]);
+		setNotionAdminStatus(result.titleUpdated && result.descriptionUpdated
+			? "Tracker title and description updated."
+			: `Partially updated: title ${result.titleUpdated ? "saved" : "failed"}; description ${result.descriptionUpdated ? "saved" : "failed"}.`);
+	} catch (error) {
+		showError(error, "Couldn't update this tracker");
+	} finally {
+		saveNotionMetadataButton.disabled = false;
+	}
+}
+
+function setNotionAdminStatus(message: string) {
+	notionAdminStatus.textContent = message;
+}
+
 function showEmpty(message: string) {
 	dashboard.classList.add("hidden");
 	emptyState.classList.remove("hidden");
@@ -762,6 +958,8 @@ function populateViewer(viewer: ViewerIdentity, localDev: boolean) {
 		: `@${viewer.username}`;
 	viewerFallback.textContent = Array.from(name)[0]?.toUpperCase() || "?";
 	viewerType.textContent = localDev ? "Admin" : viewer.type;
+	state.canManageNotions = localDev || viewer.type === "Admin" || viewer.type === "Employee";
+	manageNotionsButton.classList.toggle("hidden", !state.canManageNotions);
 	if (localDev || viewer.type === "Admin" || viewer.type === "Employee") {
 		viewerLibrary.innerHTML = "<i>All</i>";
 	} else if (viewer.libraries !== undefined && viewer.libraries != null && viewer.libraries.length > 0) {

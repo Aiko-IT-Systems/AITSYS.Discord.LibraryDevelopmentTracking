@@ -65,16 +65,33 @@ public sealed class NotionRestClient
 	internal async Task<List<NotionSearchDataSourceResult.DataSourceResult>> SearchAllDataSourcesAsync()
 	{
 		Console.WriteLine("Searching Notion for all data sources");
-		var payload = @"{
-			""filter"": {
-				""value"": ""data_source"",
-				""property"": ""object""
-			}
-		}";
-		var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/search", new StringContent(payload, Encoding.UTF8, "application/json"));
-		var content = await result.Content.ReadAsStringAsync();
-		var res = JsonConvert.DeserializeObject<NotionSearchDataSourceResult>(content);
-		var all = res?.Results ?? [];
+		var all = new List<NotionSearchDataSourceResult.DataSourceResult>();
+		string? cursor = null;
+		bool hasMore;
+		do
+		{
+			var payload = new JObject
+			{
+				["filter"] = new JObject
+				{
+					["value"] = "data_source",
+					["property"] = "object"
+				},
+				["page_size"] = 100
+			};
+			if (!string.IsNullOrWhiteSpace(cursor))
+				payload["start_cursor"] = cursor;
+
+			using var result = await this.HTTP_CLIENT.PostAsync("https://api.notion.com/v1/search", new StringContent(payload.ToString(), Encoding.UTF8, "application/json"));
+			var content = await result.Content.ReadAsStringAsync();
+			if (!result.IsSuccessStatusCode)
+				throw new HttpRequestException($"Notion data-source search failed with HTTP {(int)result.StatusCode}: {content}");
+
+			var page = JsonConvert.DeserializeObject<NotionSearchDataSourceResult>(content);
+			all.AddRange(page?.Results ?? []);
+			cursor = page?.NextCursor?.ToString();
+			hasMore = page?.HasMore is true && !string.IsNullOrWhiteSpace(cursor);
+		} while (hasMore);
 
 		// Filter by schema: must have the required tracking table columns
 		var tracking = all.Where(ds =>
