@@ -213,23 +213,18 @@ internal sealed class NotionManagementService(Config config, NotionRestClient no
 		await this._configurationGate.WaitAsync();
 		try
 		{
-			var path = Path.GetFullPath("config.json");
-			var temporaryPath = path + ".tmp";
 			var previousEnabled = this._config.NotionConfig.ImplementationTrackingConfig.ToList();
 			var previousDisabled = this._config.NotionConfig.DisabledImplementationTrackingConfig.ToList();
 			mutation();
 			try
 			{
 				var json = JsonConvert.SerializeObject(this._config, Formatting.Indented);
-				await File.WriteAllTextAsync(temporaryPath, json);
-				File.Move(temporaryPath, path, true);
+				await File.WriteAllTextAsync("config.json", json);
 			}
 			catch
 			{
 				this._config.NotionConfig.ImplementationTrackingConfig = previousEnabled;
 				this._config.NotionConfig.DisabledImplementationTrackingConfig = previousDisabled;
-				if (File.Exists(temporaryPath))
-					File.Delete(temporaryPath);
 				throw;
 			}
 		}
