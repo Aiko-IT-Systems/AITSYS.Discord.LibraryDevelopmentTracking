@@ -198,11 +198,23 @@ export async function openActivityLink(url: string) {
 	await discordSdk.commands.openExternalLink({ url });
 }
 
-/**
- * Opens Discord's native share dialog with an image URL and user-provided text.
- */
+/** Opens Discord's native share-moment dialog for an uploaded Activity image. */
+export async function openActivityShareMoment(mediaUrl: string) {
+	const config = await getAuthConfig();
+	if (config.localDevActive || !config.activityRequired) {
+		throw new Error(
+			"Chart sharing is only available inside the Discord Activity.",
+		);
+	}
+
+	const discordSdk = await getDiscordSdk(config.appId);
+	await discordSdk.commands.openShareMomentDialog({ mediaUrl });
+}
+
+/** Opens Discord's native share dialog with a direct PNG attachment and text. */
 export async function openActivityShareContent(
-	mediaUrl: string,
+	imageDataUrl: string,
+	filename: string,
 	content: string,
 ) {
 	const config = await getAuthConfig();
@@ -215,7 +227,13 @@ export async function openActivityShareContent(
 	const discordSdk = await getDiscordSdk(config.appId);
 	return discordSdk.commands.shareContent({
 		content,
-		image_url: mediaUrl,
+		attachments: [
+			{
+				data: imageDataUrl,
+				filename,
+				content_type: "image/png",
+			},
+		],
 	});
 }
 

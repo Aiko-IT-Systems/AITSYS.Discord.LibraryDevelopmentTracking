@@ -40,6 +40,7 @@ import {
 	getAuthConfig,
 	openActivityLink,
 	openActivityShareContent,
+	openActivityShareMoment,
 	shareActivityLink,
 	setActivityPresence,
 	type SessionResponse,
@@ -474,7 +475,8 @@ function App() {
 
 	async function shareChart() {
 		const kind = shareChartDialogKind;
-		if (!currentNotion || !kind || !shareChartContent.trim()) return;
+		if (!currentNotion || !kind) return;
+		const content = shareChartContent.trim();
 		const chart =
 			kind === "status" ? statusChart.current : languageChart.current;
 		const chartTitle =
@@ -486,17 +488,22 @@ function App() {
 				chart,
 				chartTitle,
 			);
-			const form = new FormData();
-			form.append("image", image);
-			const response = await fetchJson<ShareImageResponse>(
-				`/api/tracking/notions/${encodeURIComponent(currentNotion.id)}/share-image`,
-				{ method: "POST", body: form },
-			);
 			setShareChartDialogKind(null);
-			await openActivityShareContent(
-				response.mediaUrl,
-				shareChartContent.trim(),
-			);
+			if (content) {
+				await openActivityShareContent(
+					await fileToDataUrl(image),
+					image.name,
+					content,
+				);
+			} else {
+				const form = new FormData();
+				form.append("image", image);
+				const response = await fetchJson<ShareImageResponse>(
+					`/api/tracking/notions/${encodeURIComponent(currentNotion.id)}/share-image`,
+					{ method: "POST", body: form },
+				);
+				await openActivityShareMoment(response.mediaUrl);
+			}
 		} catch (cause) {
 			showError(cause, "Couldn't share this chart image");
 		} finally {
@@ -1119,16 +1126,15 @@ function App() {
 				/>
 				<ModalBody>
 					<TextArea
-						label="Message"
-						description="This message will be shared with the chart in Discord."
-						required
+						label="Comment (optional)"
+						description="Leave blank for the original share dialog, or add a message to send with the image."
 						rows={4}
 						maxLength={2000}
 						showCharacterCount
 						disabled={shareChartBusy !== null}
 						value={shareChartContent}
 						onChange={setShareChartContent}
-						placeholder="Add a comment about this chart"
+						placeholder="Add a comment about this chart (optional)"
 					/>
 				</ModalBody>
 				<ModalActionBar
@@ -1143,9 +1149,7 @@ function App() {
 							text: "Share chart",
 							variant: "primary",
 							loading: shareChartBusy !== null,
-							disabled:
-								shareChartContent.trim().length === 0 ||
-								shareChartBusy !== null,
+							disabled: shareChartBusy !== null,
 							onClick: () => void shareChart(),
 						},
 					]}
@@ -1506,6 +1510,19 @@ function AdminRow({
 			</div>
 		</div>
 	);
+}
+
+async function fileToDataUrl(file: File) {
+	return new Promise<string>((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			if (typeof reader.result === "string") resolve(reader.result);
+			else reject(new Error("The chart image could not be read."));
+		};
+		reader.onerror = () =>
+			reject(reader.error ?? new Error("The chart image could not be read."));
+		reader.readAsDataURL(file);
+	});
 }
 
 async function createChartShareImage(
