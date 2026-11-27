@@ -112,4 +112,8 @@ config.json
 **/node_modules/**
 src/wwwroot/app.js
 src/wwwroot/app.js.map
+src/wwwroot/app.css
+src/wwwroot/app.css.map
 *.sdcs
+/src/vendor/discord-mana
+/src/vendor/embedded-app-sdk

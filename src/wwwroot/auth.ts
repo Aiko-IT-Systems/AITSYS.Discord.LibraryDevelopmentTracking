@@ -7,7 +7,7 @@ import { Common, DiscordSDK } from "@discord/embedded-app-sdk";
  * This module only coordinates the embedded Discord SDK with those backend
  * endpoints and exposes shared authenticated request and external-link helpers.
  */
-const OAUTH_SCOPES = [Common.ScopesObject.identify, Common.ScopesObject.guilds]; //, Common.ScopesObject["rpc.activities.write"]];
+const OAUTH_SCOPES = ["identify", "guilds"] as const;
 
 let cachedDiscordSdk: DiscordSDK | null = null;
 
@@ -44,7 +44,12 @@ export type ViewerIdentity = {
 	username: string;
 	displayName?: string | null;
 	avatarHash?: string | null;
-	type: "External" | "Library Developer" | "Bot Developer" | "Employee" | "Admin"
+	type:
+		| "External"
+		| "Library Developer"
+		| "Bot Developer"
+		| "Employee"
+		| "Admin";
 	libraries?: string[];
 };
 
@@ -245,7 +250,7 @@ export async function setActivityPresence(activity: {
 		emoji?: {
 			name?: string;
 			id?: string;
-		}
+		};
 	};
 }) {
 	return;
