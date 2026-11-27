@@ -470,15 +470,30 @@ function App() {
 					);
 				if (!alive) return;
 				setSession(newSession);
-				const deepLinks = await getActivityDeepLinks(config);
-				if (alive && deepLinks) {
-					deepLinksRef.current = deepLinks;
-					setDirectLinksAvailable(
-						!!deepLinks.createUrl("/link-check"),
-					);
+				const deepLinkContext = await getActivityDeepLinks(config);
+				if (alive && deepLinkContext) {
+					deepLinksRef.current = deepLinkContext;
+					const deepLinks = deepLinkContext.deepLinks;
+					const probeLink = deepLinks.createUrl("/link-check");
+					console.info("[Library Tracking] Deeplink capability", {
+						available: probeLink !== null,
+						guildContextAvailable:
+							deepLinkContext.guildContextAvailable,
+						channelContextAvailable:
+							deepLinkContext.channelContextAvailable,
+					});
+					setDirectLinksAvailable(probeLink !== null);
 					const receiveDeepLink = (link: { hash: string }) => {
 						const route = parseActivityRoute(link.hash);
-						if (!route) return;
+						if (!route) {
+							console.warn(
+								"[Library Tracking] Ignored an incoming deeplink with an unsupported route.",
+							);
+							return;
+						}
+						console.info("[Library Tracking] Received a deeplink route", {
+							hasTarget: route.target !== null,
+						});
 						setIncomingRoute({
 							...route,
 							sequence: ++routeSequenceRef.current,
@@ -487,6 +502,10 @@ function App() {
 					unsubscribeDeepLinks = deepLinks.subscribe(receiveDeepLink);
 					const incoming = deepLinks.getSnapshot();
 					if (incoming) receiveDeepLink(incoming);
+				} else {
+					console.info(
+						"[Library Tracking] Deeplink capability check skipped because the Discord Activity SDK is not active.",
+					);
 				}
 				if (!config.localDevActive && config.activityRequired)
 					await setActivityPresence({
@@ -601,15 +620,25 @@ function App() {
 		try {
 			await provisionQuickLink(currentNotion.id);
 			const route = createActivityRoute(currentNotion.id, "top");
+			const deepLinkUrl = deepLinksRef.current?.deepLinks.createUrl(route);
 			const shareId =
 				route.length <= 64 &&
-				deepLinksRef.current?.createUrl(route)
+				deepLinkUrl
 					? route
 					: currentNotion.customId;
-			await shareActivityLink(
+			console.info("[Library Tracking] Sharing tracker page", {
+				usingRoute: shareId === route,
+				directLinkAvailable: deepLinkUrl !== null && deepLinkUrl !== undefined,
+			});
+			const result = await shareActivityLink(
 				shareId,
 				`Open ${currentNotion.title} in Library Tracking.`,
 			);
+			console.info("[Library Tracking] Tracker share dialog completed", {
+				success: result.success,
+				didCopyLink: result.didCopyLink,
+				didSendMessage: result.didSendMessage,
+			});
 		} catch (cause) {
 			showError(cause, "Couldn't share this Activity link");
 		} finally {
@@ -620,18 +649,24 @@ function App() {
 	async function shareLibraryLink(libraryName: string) {
 		if (!currentNotion) return;
 		const route = createActivityRoute(currentNotion.id, libraryName);
+		const deepLinkUrl = deepLinksRef.current?.deepLinks.createUrl(route);
 		if (
 			route.length > 64 ||
-			!deepLinksRef.current?.createUrl(route)
+			!deepLinkUrl
 		)
 			return;
 
 		setShareBusy(true);
 		try {
-			await shareActivityLink(
+			const result = await shareActivityLink(
 				route,
 				`Open ${libraryName} in ${currentNotion.title} in Library Tracking.`,
 			);
+			console.info("[Library Tracking] Library share dialog completed", {
+				success: result.success,
+				didCopyLink: result.didCopyLink,
+				didSendMessage: result.didSendMessage,
+			});
 		} catch (cause) {
 			showError(cause, "Couldn't share this library link");
 		} finally {

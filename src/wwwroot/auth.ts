@@ -263,7 +263,11 @@ export async function getActivityDeepLinks(config?: AuthConfigResponse) {
 	}
 
 	const discordSdk = await getDiscordSdk(resolvedConfig.appId);
-	return discordSdk.deepLinks as DeepLinks;
+	return {
+		deepLinks: discordSdk.deepLinks as DeepLinks,
+		guildContextAvailable: discordSdk.guildId !== null,
+		channelContextAvailable: discordSdk.channelId !== null,
+	};
 }
 
 /**
