@@ -483,6 +483,32 @@ button {
 	gap: 7px;
 }
 
+.library-deep-link {
+	border: 0;
+	padding: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.library-deep-link:hover:not(:disabled),
+.library-deep-link:focus-visible {
+	color: var(--text-link, #00a8fc);
+	text-decoration: underline;
+}
+
+.library-deep-link:disabled {
+	cursor: not-allowed;
+}
+
+.library-deep-link.targeted {
+	border-radius: 3px;
+	background: var(--background-modifier-selected, rgba(88, 101, 242, .24));
+	box-shadow: 0 0 0 4px var(--background-modifier-selected, rgba(88, 101, 242, .24));
+}
+
 .note-trigger {
 	display: inline-grid;
 	width: 20px;

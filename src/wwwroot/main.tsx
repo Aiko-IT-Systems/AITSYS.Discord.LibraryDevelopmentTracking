@@ -36,6 +36,7 @@ import {
 import {
 	ensureActivitySession,
 	fetchJson,
+	getActivityDeepLinks,
 	getIncomingCustomId,
 	getAuthConfig,
 	openActivityLink,
@@ -102,6 +103,38 @@ type NotionDetails = {
 };
 type ShareImageResponse = { mediaUrl: string };
 type ChartKind = "doughnut" | "bar";
+type ActivityRoute = {
+	pageId: string;
+	target: string | null;
+};
+type IncomingActivityRoute = ActivityRoute & { sequence: number };
+
+function createActivityRoute(pageId: string, target: string) {
+	const compactPageId = pageId.replaceAll("-", "").toLowerCase();
+	return `/${compactPageId}?${new URLSearchParams({ target: target.toLowerCase() })}`;
+}
+
+function parseActivityRoute(value: string): ActivityRoute | null {
+	try {
+		const route = value.startsWith("#") ? value.slice(1) : value;
+		const url = new URL(
+			route.startsWith("/") ? route : `/${route}`,
+			"https://activity.invalid",
+		);
+		const pageId = url.pathname
+			.split("/")
+			.filter(Boolean)[0]
+			?.replaceAll("-", "")
+			.toLowerCase();
+		if (!pageId || !/^[0-9a-f]{32}$/.test(pageId)) return null;
+		return {
+			pageId,
+			target: url.searchParams.get("target")?.toLowerCase() ?? null,
+		};
+	} catch {
+		return null;
+	}
+}
 
 const statuses = [
 	"Not Started",
@@ -232,6 +265,13 @@ function App() {
 	);
 	const [loadingNotions, setLoadingNotions] = useState(false);
 	const [loadingDetails, setLoadingDetails] = useState(false);
+	const [directLinksAvailable, setDirectLinksAvailable] = useState(false);
+	const [incomingRoute, setIncomingRoute] =
+		useState<IncomingActivityRoute | null>(null);
+	const [targetLibrary, setTargetLibrary] = useState<{
+		pageId: string;
+		name: string;
+	} | null>(null);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<{
 		title: string;
@@ -266,6 +306,12 @@ function App() {
 	const statusChart = useRef<Chart | null>(null);
 	const languageChart = useRef<Chart | null>(null);
 	const requestId = useRef(0);
+	const deepLinksRef = useRef<
+		Awaited<ReturnType<typeof getActivityDeepLinks>>
+	>(null);
+	const routeSequenceRef = useRef(0);
+	const appliedRouteSequenceRef = useRef(0);
+	const mainContentRef = useRef<HTMLElement>(null);
 	const canManageNotions =
 		!!session &&
 		(session.localDev ||
@@ -351,14 +397,35 @@ function App() {
 				"/api/tracking/notions",
 			);
 			setNotions(loaded);
+			const launchRoute = targetCustomId
+				? parseActivityRoute(targetCustomId)
+				: null;
+			const routedNotion = launchRoute
+				? loaded.find(
+						(notion) =>
+							notion.id.replaceAll("-", "").toLowerCase() ===
+							launchRoute.pageId,
+						)
+				: undefined;
 			const linked = targetCustomId
 				? loaded.find((notion) => notion.customId === targetCustomId)
 				: undefined;
 			const nextId =
+				routedNotion?.id ??
 				linked?.id ??
 				(preserve && loaded.some((notion) => notion.id === selectedId)
 					? selectedId
 					: (loaded[0]?.id ?? null));
+			setTargetLibrary(
+				routedNotion && launchRoute?.target
+					? {
+							pageId: routedNotion.id
+								.replaceAll("-", "")
+								.toLowerCase(),
+							name: launchRoute.target,
+						}
+					: null,
+			);
 			setSelectedId(nextId);
 			if (nextId) await selectNotion(nextId, preserve, loaded);
 			else setCurrentNotion(null);
@@ -392,6 +459,7 @@ function App() {
 
 	useEffect(() => {
 		let alive = true;
+		let unsubscribeDeepLinks: (() => void) | null = null;
 		void (async () => {
 			try {
 				setAuth("Authenticating your Discord Activity session.", 12);
@@ -402,6 +470,24 @@ function App() {
 					);
 				if (!alive) return;
 				setSession(newSession);
+				const deepLinks = await getActivityDeepLinks(config);
+				if (alive && deepLinks) {
+					deepLinksRef.current = deepLinks;
+					setDirectLinksAvailable(
+						!!deepLinks.createUrl("/link-check"),
+					);
+					const receiveDeepLink = (link: { hash: string }) => {
+						const route = parseActivityRoute(link.hash);
+						if (!route) return;
+						setIncomingRoute({
+							...route,
+							sequence: ++routeSequenceRef.current,
+						});
+					};
+					unsubscribeDeepLinks = deepLinks.subscribe(receiveDeepLink);
+					const incoming = deepLinks.getSnapshot();
+					if (incoming) receiveDeepLink(incoming);
+				}
 				if (!config.localDevActive && config.activityRequired)
 					await setActivityPresence({
 						activity: {
@@ -432,8 +518,65 @@ function App() {
 		})();
 		return () => {
 			alive = false;
+			unsubscribeDeepLinks?.();
+			deepLinksRef.current = null;
 		};
 	}, []);
+
+	useEffect(() => {
+		if (
+			!incomingRoute ||
+			!notions.length ||
+			incomingRoute.sequence <= appliedRouteSequenceRef.current
+		)
+			return;
+		appliedRouteSequenceRef.current = incomingRoute.sequence;
+		const notion = notions.find(
+			(item) =>
+				item.id.replaceAll("-", "").toLowerCase() ===
+				incomingRoute.pageId,
+		);
+		if (!notion) return;
+		setTargetLibrary(
+			incomingRoute.target
+				? {
+						pageId: incomingRoute.pageId,
+						name: incomingRoute.target,
+					}
+				: null,
+		);
+		void selectNotion(notion.id);
+	}, [incomingRoute, notions]);
+
+	useEffect(() => {
+		if (!targetLibrary || !currentNotion) return;
+		if (
+			currentNotion.id.replaceAll("-", "").toLowerCase() !==
+			targetLibrary.pageId
+		)
+			return;
+		if (targetLibrary.name === "top") {
+			mainContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+			setTargetLibrary(null);
+			return;
+		}
+		const library = currentNotion.libraries.find(
+			(item) => item.name.toLowerCase() === targetLibrary.name,
+		);
+		if (!library) {
+			setTargetLibrary(null);
+			return;
+		}
+		const targetId = `library-${encodeURIComponent(library.name.toLowerCase())}`;
+		requestAnimationFrame(() => {
+			document.getElementById(targetId)?.scrollIntoView({
+				behavior: "smooth",
+				block: "center",
+			});
+		});
+		const timeout = window.setTimeout(() => setTargetLibrary(null), 2500);
+		return () => window.clearTimeout(timeout);
+	}, [currentNotion, targetLibrary]);
 
 	async function provisionQuickLink(notionId: string) {
 		const pending = quickLinkProvisioning.get(notionId);
@@ -457,12 +600,40 @@ function App() {
 		setShareBusy(true);
 		try {
 			await provisionQuickLink(currentNotion.id);
+			const route = createActivityRoute(currentNotion.id, "top");
+			const shareId =
+				route.length <= 64 &&
+				deepLinksRef.current?.createUrl(route)
+					? route
+					: currentNotion.customId;
 			await shareActivityLink(
-				currentNotion.customId,
+				shareId,
 				`Open ${currentNotion.title} in Library Tracking.`,
 			);
 		} catch (cause) {
 			showError(cause, "Couldn't share this Activity link");
+		} finally {
+			setShareBusy(false);
+		}
+	}
+
+	async function shareLibraryLink(libraryName: string) {
+		if (!currentNotion) return;
+		const route = createActivityRoute(currentNotion.id, libraryName);
+		if (
+			route.length > 64 ||
+			!deepLinksRef.current?.createUrl(route)
+		)
+			return;
+
+		setShareBusy(true);
+		try {
+			await shareActivityLink(
+				route,
+				`Open ${libraryName} in ${currentNotion.title} in Library Tracking.`,
+			);
+		} catch (cause) {
+			showError(cause, "Couldn't share this library link");
 		} finally {
 			setShareBusy(false);
 		}
@@ -790,7 +961,7 @@ function App() {
 							</div>
 						</footer>
 					</aside>
-					<main className="main-content">
+					<main className="main-content" ref={mainContentRef}>
 						{error && (
 							<div className="error-banner" role="alert">
 								<div>
@@ -1094,11 +1265,40 @@ function App() {
 														>
 															<TableCell>
 																<div className="library-cell">
-																	<strong>
-																		{
-																			library.name
+																	<button
+																		id={`library-${encodeURIComponent(library.name.toLowerCase())}`}
+																		className={`library-deep-link ${
+																			targetLibrary?.pageId ===
+																				currentNotion.id.replaceAll("-", "").toLowerCase() &&
+																				targetLibrary.name === library.name.toLowerCase()
+																			? "targeted"
+																			: ""
+																		}`}
+																		type="button"
+																		aria-label={`Share a link to ${library.name}`}
+																		title={
+														!directLinksAvailable
+															? "Library links are available inside Discord app channels"
+															: createActivityRoute(
+																currentNotion.id,
+																library.name,
+															).length > 64
+																? "This library name is too long for a direct share link"
+																: `Share a link to ${library.name}`
 																		}
-																	</strong>
+																		disabled={
+																			!directLinksAvailable ||
+																			createActivityRoute(
+																				currentNotion.id,
+																				library.name,
+																			).length > 64
+																		}
+																		onClick={() =>
+																			void shareLibraryLink(library.name)
+																		}
+																	>
+																		<strong>{library.name}</strong>
+																	</button>
 																	{library.notes && (
 																		<LibraryNotes
 																			name={

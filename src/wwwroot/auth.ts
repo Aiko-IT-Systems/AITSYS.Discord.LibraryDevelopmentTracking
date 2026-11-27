@@ -1,4 +1,5 @@
 import { Common, DiscordSDK } from "@discord/embedded-app-sdk";
+import type { DeepLinks } from "@discord/embedded-app-sdk";
 
 /**
  * Client-side Discord Activity authentication and session helpers.
@@ -252,6 +253,17 @@ export async function shareActivityLink(customId: string, message: string) {
 		message,
 		custom_id: customId,
 	});
+}
+
+/** Returns Discord's in-channel deep-link helpers when the Activity has channel context. */
+export async function getActivityDeepLinks(config?: AuthConfigResponse) {
+	const resolvedConfig = config ?? (await getAuthConfig());
+	if (resolvedConfig.localDevActive || !resolvedConfig.activityRequired) {
+		return null;
+	}
+
+	const discordSdk = await getDiscordSdk(resolvedConfig.appId);
+	return discordSdk.deepLinks as DeepLinks;
 }
 
 /**
