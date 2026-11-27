@@ -4,7 +4,13 @@ WORKDIR /src
 COPY package.json ./
 COPY package-lock.json ./
 COPY vendor ./vendor
-RUN npm ci
+# Prefer the server-supplied SDK build, which carries the Discord theme bridge.
+RUN set -eu; \
+    node -e "const p = require('./vendor/embedded-app-sdk/package.json'); if (p.name !== '@discord/embedded-app-sdk' || p.version !== '3.0.0-beta.4') throw new Error('Expected the manually supplied @discord/embedded-app-sdk 3.0.0-beta.4 package.');"; \
+    grep -q 'createDiscordEnvironment' vendor/embedded-app-sdk/output/Discord.mjs || { echo 'The supplied Embedded App SDK is missing createDiscordEnvironment.' >&2; exit 1; }; \
+    grep -q 'DISCORD_ENV_UPDATE' vendor/embedded-app-sdk/output/frame.mjs || { echo 'The supplied Embedded App SDK is missing DISCORD_ENV_UPDATE theme support.' >&2; exit 1; }; \
+    grep -q 'applyDiscordEnv' vendor/embedded-app-sdk/output/frame.mjs || { echo 'The supplied Embedded App SDK is missing its Discord theme applier.' >&2; exit 1; }; \
+    npm ci
 
 COPY . ./
 RUN npm run build

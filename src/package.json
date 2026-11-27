@@ -2,7 +2,7 @@
 	"name": "discord-library-development-frontend",
 	"private": true,
 	"dependencies": {
-		"@discord/embedded-app-sdk": "3.0.0-beta.4",
+		"@discord/embedded-app-sdk": "file:vendor/embedded-app-sdk",
 		"@discord/mana": "file:vendor/discord-mana",
 		"chart.js": "4.5.1",
 		"react": "19.3.1",
