@@ -202,6 +202,44 @@ internal sealed class ActivityAuthService(DiscordClient discordClient, Config co
 		return this.Authorize(application, session.UserId, session.GuildIds);
 	}
 
+	public async Task<(string Type, string[]? Libraries)> RefreshLibraryRolesAsync(ActivitySession session, CancellationToken cancellationToken)
+	{
+		var type = session.Type is "Admin" or "Employee" ? session.Type : "External";
+		if (!this._discordClient.Guilds.TryGetValue(this._config.DiscordConfig.DiscordGuild, out var guild))
+		{
+			this._logger.LogWarning("Unable to refresh library roles for activity user {UserId}: configured guild {GuildId} is not cached.", session.UserId, this._config.DiscordConfig.DiscordGuild);
+			return (session.Type, session.Libraries);
+		}
+
+		DiscordMember? member;
+		try
+		{
+			member = await guild.TryGetMemberAsync(session.UserId, fetch: true, cancellationToken: cancellationToken);
+		}
+		catch (Exception ex) when (ex is not OperationCanceledException)
+		{
+			this._logger.LogWarning(ex, "Unable to refresh library roles for activity user {UserId}; retaining the previous role snapshot.", session.UserId);
+			return (session.Type, session.Libraries);
+		}
+
+		if (member is null)
+			return (type, null);
+
+		var libraries = this._config.DiscordConfig.LibraryRoleMapping
+			.Where(library => member.RoleIds.Contains(library.Key))
+			.Select(library => library.Value)
+			.ToArray();
+
+		if (type is not ("Admin" or "Employee"))
+			type = member.RoleIds.Contains(this._config.DiscordConfig.LibraryDeveloperRoleId)
+				? "Library Developer"
+				: member.RoleIds.Contains(this._config.DiscordConfig.BotDeveloperRoleId)
+					? "Bot Developer"
+					: "External";
+
+		return (type, libraries);
+	}
+
 	public async Task<StoredDiscordAccessToken> GetValidAccessTokenAsync(ActivitySessionStore sessions, ActivitySession session, bool forceRefresh = false)
 	{
 		if (!forceRefresh && !session.OAuthToken.ShouldRefresh())
@@ -334,14 +372,17 @@ internal sealed record ActivitySession(
 	string[]? Libraries = null)
 {
 	public SessionResponse ToResponse(bool localDev = false)
-		=> this.BuildResponse(this.Authorization, localDev);
+		=> this.BuildResponse(this.Authorization, this.Type, this.Libraries, localDev);
 
 	public SessionResponse ToResponse(AuthorizationSnapshot authorization, bool localDev = false)
-		=> this.BuildResponse(authorization, localDev);
+		=> this.BuildResponse(authorization, this.Type, this.Libraries, localDev);
 
-	private SessionResponse BuildResponse(AuthorizationSnapshot authorization, bool localDev)
+	public SessionResponse ToResponse(AuthorizationSnapshot authorization, string type, string[]? libraries, bool localDev = false)
+		=> this.BuildResponse(authorization, type, libraries, localDev);
+
+	private SessionResponse BuildResponse(AuthorizationSnapshot authorization, string type, string[]? libraries, bool localDev)
 		=> new(
-			new ViewerIdentity(this.UserId.ToString(), this.Username, this.DisplayName, this.AvatarHash, this.Type, this.Libraries),
+			new ViewerIdentity(this.UserId.ToString(), this.Username, this.DisplayName, this.AvatarHash, type, libraries),
 			authorization,
 			localDev,
 			this.LaunchContext?.GuildId?.ToString(),

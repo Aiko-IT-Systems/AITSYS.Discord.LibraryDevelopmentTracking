@@ -336,7 +336,7 @@ public sealed class DiscordBot
 		this.WebApplication.MapGet("/api/auth/config", async (HttpContext context, ActivityAuthService auth) =>
 			Results.Json(await auth.GetAuthConfigAsync(context.Request)));
 
-		this.WebApplication.MapGet("/api/auth/session", async (HttpContext context, ActivityAuthService auth, ActivitySessionStore sessions) =>
+		this.WebApplication.MapGet("/api/auth/session", async (HttpContext context, ActivityAuthService auth, ActivitySessionStore sessions, CancellationToken cancellationToken) =>
 		{
 			if (auth.IsLocalDevAllowed(context.Request))
 				return Results.Json(BuildLocalDevSession());
@@ -373,7 +373,8 @@ public sealed class DiscordBot
 					return Results.Json(new { message = "Your activity access has been revoked." }, statusCode: StatusCodes.Status403Forbidden);
 				}
 
-				return Results.Json(session.ToResponse(refreshedAuthorization));
+				var refreshedRoles = await auth.RefreshLibraryRolesAsync(session, cancellationToken);
+				return Results.Json(session.ToResponse(refreshedAuthorization, refreshedRoles.Type, refreshedRoles.Libraries));
 			}
 
 			return session is null
