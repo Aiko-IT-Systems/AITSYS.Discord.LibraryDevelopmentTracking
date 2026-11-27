@@ -807,12 +807,81 @@ function App() {
 							</div>
 						)}
 						{loadingDetails && (
-							<section className="loading-panel">
-								<ProgressBar
-									isIndeterminate
-									aria-label="Loading tracker"
-								/>
-								<span>Loading tracker details…</span>
+							<section
+								className="dashboard-skeleton"
+								role="status"
+								aria-label="Loading tracker details"
+							>
+								<header className="dashboard-skeleton-header">
+									<span className="skeleton-block skeleton-page-icon" />
+									<div className="dashboard-skeleton-title">
+										<span className="skeleton-block skeleton-eyebrow" />
+										<span className="skeleton-block skeleton-title" />
+										<span className="skeleton-block skeleton-description" />
+									</div>
+									<div className="dashboard-skeleton-actions">
+										<span className="skeleton-block" />
+										<span className="skeleton-block" />
+									</div>
+								</header>
+								<div className="dashboard-skeleton-metrics">
+									{Array.from({ length: 5 }, (_, index) => (
+										<div className="dashboard-skeleton-metric" key={index}>
+											<span className="skeleton-block" />
+											<span className="skeleton-block" />
+											<span className="skeleton-block" />
+										</div>
+									))}
+								</div>
+								<div className="dashboard-skeleton-charts">
+									<div className="dashboard-skeleton-surface">
+										<div className="dashboard-skeleton-surface-heading">
+											<span className="skeleton-block" />
+											<span className="skeleton-block" />
+										</div>
+										<div className="dashboard-skeleton-donut">
+											<span className="skeleton-block" />
+										</div>
+									</div>
+									<div className="dashboard-skeleton-surface">
+										<div className="dashboard-skeleton-surface-heading">
+											<span className="skeleton-block" />
+											<span className="skeleton-block" />
+										</div>
+										<div className="dashboard-skeleton-bars">
+											{[34, 56, 72, 48, 88, 62, 42, 80].map(
+												(height, index) => (
+													<span
+														className="skeleton-block"
+														key={index}
+														style={{ height: `${height}%` }}
+													/>
+												),
+											)}
+										</div>
+									</div>
+								</div>
+								<div className="dashboard-skeleton-surface dashboard-skeleton-table">
+									<div className="dashboard-skeleton-surface-heading">
+										<span className="skeleton-block" />
+										<span className="skeleton-block" />
+									</div>
+									<div className="dashboard-skeleton-table-heading">
+										{Array.from({ length: 5 }, (_, index) => (
+											<span className="skeleton-block" key={index} />
+										))}
+									</div>
+									{Array.from({ length: 5 }, (_, row) => (
+										<div className="dashboard-skeleton-table-row" key={row}>
+											{Array.from({ length: 5 }, (_, column) => (
+												<span
+													className="skeleton-block"
+													key={column}
+												/>
+											))}
+										</div>
+									))}
+								</div>
 							</section>
 						)}
 						{!currentNotion && !loadingDetails && (
