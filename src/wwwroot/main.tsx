@@ -347,7 +347,6 @@ function App() {
 			);
 			if (thisRequest === requestId.current) {
 				setCurrentNotion(notion);
-				void provisionQuickLink(notion.id);
 				const config = await getAuthConfig();
 				if (!config.localDevActive && config.activityRequired)
 					await setActivityPresence({

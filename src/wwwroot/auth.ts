@@ -10,6 +10,7 @@ import { Common, DiscordSDK } from "@discord/embedded-app-sdk";
 const OAUTH_SCOPES = ["identify", "guilds"] as const;
 
 let cachedDiscordSdk: DiscordSDK | null = null;
+let cachedAuthConfig: Promise<AuthConfigResponse> | null = null;
 
 let cachedAccessToken: {
 	accessToken: string;
@@ -87,10 +88,20 @@ export class HttpError extends Error {
 }
 
 /**
- * Fetches Activity bootstrap configuration from the backend.
+ * Fetches and caches Activity bootstrap configuration for this Activity frame.
+ * A failed request clears the cache so a later call can retry.
  */
-export async function getAuthConfig() {
-	return fetchJson<AuthConfigResponse>("/api/auth/config");
+export function getAuthConfig() {
+	if (!cachedAuthConfig) {
+		cachedAuthConfig = fetchJson<AuthConfigResponse>("/api/auth/config").catch(
+			(error) => {
+				cachedAuthConfig = null;
+				throw error;
+			},
+		);
+	}
+
+	return cachedAuthConfig;
 }
 
 /**
