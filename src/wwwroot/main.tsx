@@ -385,7 +385,8 @@ function App() {
 			const loaded = await fetchJson<NotionListItem[]>(
 				"/api/tracking/notions",
 			);
-			setNotions(loaded);
+			const newestFirst = [...loaded].reverse();
+			setNotions(newestFirst);
 			const launchRoute = targetCustomId
 				? parseShareRoute(targetCustomId)
 				: null;
@@ -402,9 +403,9 @@ function App() {
 			const nextId =
 				routedNotion?.id ??
 				linked?.id ??
-				(preserve && loaded.some((notion) => notion.id === selectedId)
+				(preserve && newestFirst.some((notion) => notion.id === selectedId)
 					? selectedId
-					: (loaded[0]?.id ?? null));
+					: (newestFirst[0]?.id ?? null));
 			setTargetLibrary(
 				routedNotion && launchRoute?.target
 					? {
@@ -416,7 +417,7 @@ function App() {
 					: null,
 			);
 			setSelectedId(nextId);
-			if (nextId) await selectNotion(nextId, preserve, loaded);
+			if (nextId) await selectNotion(nextId, preserve, newestFirst);
 			else setCurrentNotion(null);
 		} catch (cause) {
 			setNotions([]);
