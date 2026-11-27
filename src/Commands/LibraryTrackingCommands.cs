@@ -140,66 +140,56 @@ public class LibraryTrackingCommands : ApplicationCommandsModule
 			}
 
 			var notions = DiscordBot.Configuration.NotionConfig.ImplementationTrackingConfig;
-			List<DiscordComponent> components = [new DiscordTextDisplayComponent($"Status for {libraryName.Bold()}".Header2())];
+			var heading = $"Status for {libraryName.Bold()}".Header2();
+			List<string> statusLines = [heading];
+			var textLength = heading.Length;
+			const int maxTextDisplayCharacters = 4000;
 
 			foreach (var notion in notions)
 			{
+				string statusLine;
 				try
 				{
 					var dataSource = await DiscordBot.NotionRestClient.GetDataSourceBySearchAsync(notion.PageId);
 					if (dataSource is null)
 					{
-						components.Add(new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large));
-						components.Add(new DiscordTextDisplayComponent($"{notion.Name.Header3()}\n-# Data source not available"));
-						continue;
+						statusLine = $"• {notion.Name} — Data source not available";
 					}
-
-					var queryResult = await DiscordBot.NotionRestClient.QueryDataSourceAsync(dataSource.Id, libraryName);
-					if (queryResult?.Results is null || queryResult.Results.Count is 0)
+					else
 					{
-						components.Add(new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large));
-						components.Add(new DiscordTextDisplayComponent($"{notion.Name.Header3()}\n-# Not tracked in this notion"));
-						continue;
+						var queryResult = await DiscordBot.NotionRestClient.QueryDataSourceAsync(dataSource.Id, libraryName);
+						statusLine = queryResult?.Results is null || queryResult.Results.Count is 0
+							? $"• {notion.Name} — Not tracked"
+							: $"• {notion.Name} — {queryResult.Results[0].Properties.Status.InnerStatus.Name}";
 					}
-
-					var result = queryResult.Results[0];
-					var status = result.Properties.Status.InnerStatus.Name;
-					var prCommitUrl = result.Properties.PullRequestCommit.Url;
-					var version = result.Properties.ReleasedInVersion.RichText.Count is not 0
-						? string.Join("", result.Properties.ReleasedInVersion.RichText.SelectMany(x => x.Text.Content))
-						: null;
-					var notes = result.Properties.Notes.RichText.Count is not 0
-						? string.Join("", result.Properties.Notes.RichText.SelectMany(x => x.Text.Content))
-						: null;
-					var lastModifiedBy = result.Properties.ModifiedBy.RichText.Count is not 0
-						? Convert.ToUInt64(string.Join("", result.Properties.ModifiedBy.RichText.SelectMany(x => x.Text.Content)))
-						: Convert.ToUInt64(856780995629154305);
-					var lastModifiedByUser = await ctx.Client.GetUserAsync(lastModifiedBy);
-					var lastEditedTimestamp = result.LastEditedTime.HasValue
-						? result.LastEditedTime!.Value.Timestamp()
-						: result.CreatedTime.HasValue
-							? result.CreatedTime!.Value.Timestamp()
-							: "Unknown";
-
-					var statusLine = $"{"Status:".Bold()} {status}";
-					var versionLine = version is not null ? $"\n{"Version:".Bold()} {version}" : "";
-					var notesLine = notes is not null ? $"\n{"Notes:".Bold()} {notes}" : "";
-					var modifiedLine = $"\n-# Last edited by: {lastModifiedByUser.Mention()} · {lastEditedTimestamp}";
-
-					components.Add(new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large));
-					components.Add(new DiscordTextDisplayComponent($"{notion.Name.Header3()}\n{statusLine}{versionLine}{notesLine}{modifiedLine}"));
-
-					if (!string.IsNullOrWhiteSpace(prCommitUrl))
-						components.Add(new DiscordActionRowComponent([new DiscordLinkButtonComponent(prCommitUrl, "PR / Commit")]));
 				}
 				catch
 				{
-					components.Add(new DiscordSeparatorComponent(true, SeparatorSpacingSize.Large));
-					components.Add(new DiscordTextDisplayComponent($"{notion.Name.Header3()}\n-# Failed to fetch data for this notion"));
+					statusLine = $"• {notion.Name} — Failed to fetch";
 				}
+
+				var remainingCharacters = maxTextDisplayCharacters - textLength - 1;
+				if (remainingCharacters <= 0)
+					break;
+
+				if (statusLine.Length > remainingCharacters)
+				{
+					var truncatedLine = statusLine[..Math.Max(0, remainingCharacters - 1)] + "…";
+					statusLines.Add(truncatedLine);
+					textLength += truncatedLine.Length + 1;
+					break;
+				}
+
+				statusLines.Add(statusLine);
+				textLength += statusLine.Length + 1;
 			}
 
-			var container = new DiscordContainerComponent([.. components], accentColor: new DiscordColor("#8692FE"));
+			const string omittedResultsNotice = "-# Additional tracker results omitted to fit Discord's message limit.";
+			if (statusLines.Count < notions.Count + 1
+				&& textLength + omittedResultsNotice.Length + 1 <= maxTextDisplayCharacters)
+				statusLines.Add(omittedResultsNotice);
+
+			var container = new DiscordContainerComponent([new DiscordTextDisplayComponent(string.Join("\n", statusLines))], accentColor: new DiscordColor("#8692FE"));
 			await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithV2Components().AddComponents(container).WithAllowedMentions(Mentions.None));
 		}
 		catch (DisCatSharpException)
