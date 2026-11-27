@@ -9,6 +9,7 @@ import {
 	ModalActionBar,
 	ModalBody,
 	ModalHeader,
+	NumberBadge,
 	ProgressBar,
 	Popover,
 	Select,
@@ -43,6 +44,7 @@ import {
 	openActivityShareMoment,
 	shareActivityLink,
 	setActivityPresence,
+	HttpError,
 	type SessionResponse,
 	type ViewerIdentity,
 } from "./auth";
@@ -257,6 +259,10 @@ function App() {
 	const [authFailed, setAuthFailed] = useState(false);
 	const [session, setSession] = useState<SessionResponse | null>(null);
 	const [notions, setNotions] = useState<NotionListItem[]>([]);
+	const [notionDetailsById, setNotionDetailsById] = useState<
+		Record<string, NotionDetails>
+	>({});
+	const sessionRecovery = useRef<Promise<SessionResponse> | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [currentNotion, setCurrentNotion] = useState<NotionDetails | null>(
 		null,
@@ -330,6 +336,58 @@ function App() {
 		setAuthFailed(failed);
 	};
 
+	async function fetchActivityJson<T>(
+		input: RequestInfo | URL,
+		init?: RequestInit,
+	) {
+		try {
+			return await fetchJson<T>(input, init);
+		} catch (error) {
+			if (!(error instanceof HttpError) || error.status !== 401) throw error;
+
+			if (!sessionRecovery.current) {
+				const recovery = ensureActivitySession(() => {})
+					.then(({ session: refreshedSession }) => {
+						setSession(refreshedSession);
+						return refreshedSession;
+					});
+				sessionRecovery.current = recovery;
+			}
+
+			const recovery = sessionRecovery.current;
+			try {
+				await recovery;
+			} finally {
+				if (sessionRecovery.current === recovery)
+					sessionRecovery.current = null;
+			}
+
+			return fetchJson<T>(input, init);
+		}
+	}
+
+	async function prefetchNotionDetails(
+		availableNotions: NotionListItem[],
+		excludeId: string | null,
+	) {
+		const missing = availableNotions.filter(
+			(notion) => notion.id !== excludeId && !notionDetailsById[notion.id],
+		);
+		for (const notion of missing) {
+			try {
+				const detail = await fetchActivityJson<NotionDetails>(
+					`/api/tracking/notions/${encodeURIComponent(notion.id)}`,
+				);
+				setNotionDetailsById((existing) => ({
+					...existing,
+					[notion.id]: detail,
+				}));
+			} catch {
+				// One unavailable tracker should not stop the remaining prefetches.
+			}
+		}
+	}
+
 	async function selectNotion(
 		id: string,
 		refresh = false,
@@ -342,9 +400,15 @@ function App() {
 		clearError();
 		const thisRequest = ++requestId.current;
 		try {
-			const notion = await fetchJson<NotionDetails>(
-				`/api/tracking/notions/${encodeURIComponent(id)}${refresh ? "?refresh=true" : ""}`,
-			);
+			const notion = refresh
+				? await fetchActivityJson<NotionDetails>(
+						`/api/tracking/notions/${encodeURIComponent(id)}?refresh=true`,
+					)
+				: (notionDetailsById[id] ??
+					await fetchActivityJson<NotionDetails>(
+						`/api/tracking/notions/${encodeURIComponent(id)}`,
+					));
+			setNotionDetailsById((existing) => ({ ...existing, [id]: notion }));
 			if (thisRequest === requestId.current) {
 				setCurrentNotion(notion);
 				const config = await getAuthConfig();
@@ -382,7 +446,7 @@ function App() {
 		setLoadingNotions(true);
 		clearError();
 		try {
-			const loaded = await fetchJson<NotionListItem[]>(
+			const loaded = await fetchActivityJson<NotionListItem[]>(
 				"/api/tracking/notions",
 			);
 			const newestFirst = [...loaded].reverse();
@@ -419,6 +483,7 @@ function App() {
 			setSelectedId(nextId);
 			if (nextId) await selectNotion(nextId, preserve, newestFirst);
 			else setCurrentNotion(null);
+			void prefetchNotionDetails(newestFirst, nextId);
 		} catch (cause) {
 			setNotions([]);
 			setSelectedId(null);
@@ -436,7 +501,7 @@ function App() {
 		setAdminStatus("Loading enabled and disabled trackers…");
 		try {
 			setAdminNotions(
-				await fetchJson<AdminNotion[]>("/api/admin/notions"),
+				await fetchActivityJson<AdminNotion[]>("/api/admin/notions"),
 			);
 			setAdminStatus("");
 		} catch (cause) {
@@ -527,7 +592,7 @@ function App() {
 		if (pending) return pending;
 		const attempt = (async () => {
 			try {
-				await fetchJson<void>(
+				await fetchActivityJson<void>(
 					`/api/tracking/notions/${encodeURIComponent(notionId)}/quick-link`,
 					{ method: "POST" },
 				);
@@ -606,7 +671,7 @@ function App() {
 			} else {
 				const form = new FormData();
 				form.append("image", image);
-				const response = await fetchJson<ShareImageResponse>(
+				const response = await fetchActivityJson<ShareImageResponse>(
 					`/api/tracking/notions/${encodeURIComponent(currentNotion.id)}/share-image`,
 					{ method: "POST", body: form },
 				);
@@ -631,7 +696,7 @@ function App() {
 		if (!editLibrary || !currentNotion) return;
 		setEditLibraryBusy(true);
 		try {
-			await fetchJson<void>(
+			await fetchActivityJson<void>(
 				`/api/tracking/notions/${encodeURIComponent(currentNotion.id)}/libraries/update`,
 				{
 					method: "POST",
@@ -656,7 +721,7 @@ function App() {
 
 	async function toggleNotion(notion: AdminNotion) {
 		try {
-			await fetchJson<void>(
+			await fetchActivityJson<void>(
 				`/api/admin/notions/${encodeURIComponent(notion.id)}/${notion.enabled ? "disable" : "enable"}`,
 				{ method: "POST" },
 			);
@@ -676,7 +741,7 @@ function App() {
 		setCreateBusy(true);
 		setAdminStatus("Creating the Notion page and applying its template…");
 		try {
-			const created = await fetchJson<NotionCreationResponse>(
+			const created = await fetchActivityJson<NotionCreationResponse>(
 				"/api/admin/notions",
 				{
 					method: "POST",
@@ -704,7 +769,7 @@ function App() {
 	}
 	async function openMetadataEditor(notion: AdminNotion) {
 		try {
-			const metadata = await fetchJson<NotionMetadata>(
+			const metadata = await fetchActivityJson<NotionMetadata>(
 				`/api/admin/notions/${encodeURIComponent(notion.id)}/metadata`,
 			);
 			setMetadataNotion(notion);
@@ -719,7 +784,7 @@ function App() {
 		if (!metadataNotion) return;
 		setMetadataBusy(true);
 		try {
-			const result = await fetchJson<{
+			const result = await fetchActivityJson<{
 				titleUpdated: boolean;
 				descriptionUpdated: boolean;
 			}>(
@@ -767,6 +832,21 @@ function App() {
 	const visibleAdminNotions = adminNotions.filter(
 		(notion) => !notion.isTemplate,
 	);
+	const viewerLibraryNames = new Set(
+		viewer?.type === "Library Developer" ? viewer.libraries ?? [] : [],
+	);
+	const getPendingLibraries = (notionId: string) =>
+		[
+			...new Set(
+				(notionDetailsById[notionId]?.libraries ?? [])
+					.filter(
+						(library) =>
+							viewerLibraryNames.has(library.name) &&
+							library.status.toLowerCase() !== "released",
+					)
+					.map((library) => library.name),
+			),
+		];
 
 	return (
 		<div className="activity-shell">
@@ -833,30 +913,47 @@ function App() {
 									Loading trackers…
 								</div>
 							) : notions.length ? (
-								notions.map((notion) => (
-									<button
-										type="button"
-										key={notion.id}
-										className={`notion-item ${notion.id === selectedId ? "selected" : ""}`}
-										aria-label={`Select ${notion.name}`}
-										aria-current={
-											notion.id === selectedId
-												? "page"
-												: undefined
-										}
-										onClick={() =>
-											void selectNotion(notion.id)
-										}
-									>
-										<span
-											className="notion-icon"
-											aria-hidden="true"
+								notions.map((notion) => {
+									const pendingLibraries = getPendingLibraries(notion.id);
+									const pendingLabel = pendingLibraries.length
+										? `${pendingLibraries.length} of your libraries still need work: ${pendingLibraries.join(", ")}`
+										: null;
+
+									return (
+										<button
+											type="button"
+											key={notion.id}
+											className={`notion-item ${notion.id === selectedId ? "selected" : ""}`}
+											aria-label={`Select ${notion.name}${pendingLabel ? `. ${pendingLabel}` : ""}`}
+											title={pendingLabel ?? undefined}
+											aria-current={
+												notion.id === selectedId ? "page" : undefined
+											}
+											onClick={() => void selectNotion(notion.id)}
 										>
-											▤
-										</span>
-										<span>{notion.name}</span>
-									</button>
-								))
+											<span
+												className="notion-icon"
+												aria-hidden="true"
+											>
+												▤
+											</span>
+											<span className="notion-name">
+												{notion.name}
+											</span>
+											{pendingLibraries.length > 0 && (
+												<span
+													className="notion-work-badge"
+													aria-hidden="true"
+												>
+													<NumberBadge
+														count={pendingLibraries.length}
+														color="var(--status-warning-background, #f0b232)"
+													/>
+												</span>
+											)}
+										</button>
+									);
+								})
 							) : (
 								<p className="muted sidebar-empty">
 									No tracked notions

@@ -123,7 +123,7 @@ button {
 .sidebar-header>div:last-child,
 .sidebar-heading>span,
 .sidebar-tools,
-.notion-item span:last-child,
+.notion-name,
 .viewer-copy {
 	white-space: nowrap;
 }
@@ -173,6 +173,7 @@ button {
 }
 
 .notion-item {
+	position: relative;
 	display: flex;
 	width: 48px;
 	min-height: 38px;
@@ -195,8 +196,8 @@ button {
 	justify-content: flex-start;
 }
 
-.sidebar:hover .notion-item span:last-child,
-.sidebar:focus-within .notion-item span:last-child {
+.sidebar:hover .notion-name,
+.sidebar:focus-within .notion-name {
 	opacity: 1;
 }
 
@@ -218,11 +219,22 @@ button {
 	font-size: 16px;
 }
 
-.notion-item span:last-child {
+.notion-name {
 	overflow: hidden;
 	opacity: 0;
 	text-overflow: ellipsis;
 	transition: opacity 100ms ease;
+}
+
+.notion-work-badge {
+	position: absolute;
+	top: 1px;
+	right: -4px;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	filter: drop-shadow(0 1px 2px var(--background-base-lower, #2b2d31));
 }
 
 .sidebar-empty,
@@ -1025,7 +1037,7 @@ button {
 		max-width: 230px;
 	}
 
-	.notion-item span:last-child {
+	.notion-name {
 		opacity: 1;
 	}
 
