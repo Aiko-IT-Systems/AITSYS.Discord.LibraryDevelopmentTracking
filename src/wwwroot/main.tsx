@@ -947,7 +947,8 @@ function App() {
 												>
 													<NumberBadge
 														count={pendingLibraries.length}
-														color="var(--status-warning-background, #f0b232)"
+														color="#4752c4"
+														style={{ color: "#fff" }}
 													/>
 												</span>
 											)}
