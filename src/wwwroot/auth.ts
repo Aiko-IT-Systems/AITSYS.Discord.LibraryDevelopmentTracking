@@ -199,9 +199,11 @@ export async function openActivityLink(url: string) {
 }
 
 /**
- * Opens Discord's native share-moment dialog for an Activity attachment URL.
+ * Opens Discord's native share dialog with an image URL and no message text.
+ * The manually supplied SDK declares `content` as required, so this narrow cast
+ * intentionally probes whether the Discord client accepts an image-only share.
  */
-export async function openActivityShareMoment(mediaUrl: string) {
+export async function openActivityShareContent(mediaUrl: string) {
 	const config = await getAuthConfig();
 	if (config.localDevActive || !config.activityRequired) {
 		throw new Error(
@@ -210,7 +212,14 @@ export async function openActivityShareMoment(mediaUrl: string) {
 	}
 
 	const discordSdk = await getDiscordSdk(config.appId);
-	await discordSdk.commands.openShareMomentDialog({ mediaUrl });
+	const shareContentWithoutText = discordSdk.commands.shareContent as unknown as (
+		args: { image_url: string },
+	) => Promise<{
+		success: boolean;
+		didCopyLink: boolean;
+		didSendMessage: boolean;
+	}>;
+	return shareContentWithoutText({ image_url: mediaUrl });
 }
 
 /**

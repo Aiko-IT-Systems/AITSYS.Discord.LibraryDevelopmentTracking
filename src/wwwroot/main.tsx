@@ -39,7 +39,7 @@ import {
 	getIncomingCustomId,
 	getAuthConfig,
 	openActivityLink,
-	openActivityShareMoment,
+	openActivityShareContent,
 	shareActivityLink,
 	setActivityPresence,
 	type SessionResponse,
@@ -482,7 +482,7 @@ function App() {
 				`/api/tracking/notions/${encodeURIComponent(currentNotion.id)}/share-image`,
 				{ method: "POST", body: form },
 			);
-			await openActivityShareMoment(response.mediaUrl);
+			await openActivityShareContent(response.mediaUrl);
 		} catch (cause) {
 			showError(cause, "Couldn't share this chart image");
 		} finally {
