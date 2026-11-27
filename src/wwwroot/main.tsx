@@ -258,6 +258,10 @@ function App() {
 	const [metadataBusy, setMetadataBusy] = useState(false);
 	const [shareBusy, setShareBusy] = useState(false);
 	const [shareChartBusy, setShareChartBusy] = useState<string | null>(null);
+	const [shareChartDialogKind, setShareChartDialogKind] = useState<
+		"status" | "language" | null
+	>(null);
+	const [shareChartContent, setShareChartContent] = useState("");
 	const statusChart = useRef<Chart | null>(null);
 	const languageChart = useRef<Chart | null>(null);
 	const requestId = useRef(0);
@@ -463,8 +467,14 @@ function App() {
 		}
 	}
 
-	async function shareChart(kind: "status" | "language") {
-		if (!currentNotion) return;
+	function openShareChartDialog(kind: "status" | "language") {
+		setShareChartContent("");
+		setShareChartDialogKind(kind);
+	}
+
+	async function shareChart() {
+		const kind = shareChartDialogKind;
+		if (!currentNotion || !kind || !shareChartContent.trim()) return;
 		const chart =
 			kind === "status" ? statusChart.current : languageChart.current;
 		const chartTitle =
@@ -482,7 +492,11 @@ function App() {
 				`/api/tracking/notions/${encodeURIComponent(currentNotion.id)}/share-image`,
 				{ method: "POST", body: form },
 			);
-			await openActivityShareContent(response.mediaUrl);
+			setShareChartDialogKind(null);
+			await openActivityShareContent(
+				response.mediaUrl,
+				shareChartContent.trim(),
+			);
 		} catch (cause) {
 			showError(cause, "Couldn't share this chart image");
 		} finally {
@@ -905,7 +919,7 @@ function App() {
 													shareChartBusy === "status"
 												}
 												onClick={() =>
-													void shareChart("status")
+													openShareChartDialog("status")
 												}
 											/>
 										</header>
@@ -939,7 +953,7 @@ function App() {
 													"language"
 												}
 												onClick={() =>
-													void shareChart("language")
+													openShareChartDialog("language")
 												}
 											/>
 										</header>
@@ -1091,6 +1105,52 @@ function App() {
 					</main>
 				</>
 			)}
+
+			<Modal
+				open={shareChartDialogKind !== null}
+				onClose={() => {
+					if (shareChartBusy === null) setShareChartDialogKind(null);
+				}}
+				size="sm"
+			>
+				<ModalHeader
+					title="Share chart"
+					subtitle={`${shareChartDialogKind === "status" ? "Implementation status" : "Language support"} · ${currentNotion?.title ?? ""}`}
+				/>
+				<ModalBody>
+					<TextArea
+						label="Message"
+						description="This message will be shared with the chart in Discord."
+						required
+						rows={4}
+						maxLength={2000}
+						showCharacterCount
+						disabled={shareChartBusy !== null}
+						value={shareChartContent}
+						onChange={setShareChartContent}
+						placeholder="Add a comment about this chart"
+					/>
+				</ModalBody>
+				<ModalActionBar
+					actions={[
+						{
+							text: "Cancel",
+							variant: "secondary",
+							disabled: shareChartBusy !== null,
+							onClick: () => setShareChartDialogKind(null),
+						},
+						{
+							text: "Share chart",
+							variant: "primary",
+							loading: shareChartBusy !== null,
+							disabled:
+								shareChartContent.trim().length === 0 ||
+								shareChartBusy !== null,
+							onClick: () => void shareChart(),
+						},
+					]}
+				/>
+			</Modal>
 
 			<Modal
 				open={!!editLibrary}
